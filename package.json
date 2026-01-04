@@ -1,0 +1,19 @@
+{
+  "name": "qimen-dunjia",
+  "version": "2.0.0",
+  "description": "奇門遁甲排盤系統 - 重構版",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": [
+    "qimen",
+    "dunjia",
+    "奇門遁甲",
+    "chinese-metaphysics",
+    "divination"
+  ],
+  "author": "",
+  "license": "MIT"
+}
