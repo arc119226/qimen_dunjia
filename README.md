@@ -534,6 +534,7 @@ qimen/
 │   ├── qimen.min.js           # ES Module 格式（~13KB，需外部 lunar-javascript）
 │   ├── qimen.standalone.min.js # IIFE 格式（~337KB，已包含 lunar-javascript）
 │   └── API.md                 # 打包產物使用說明
+├── CHANGELOG.md    # 版本歷史
 └── README.md       # 本文件
 ```
 
@@ -573,22 +574,7 @@ qimen-dunjia-v{版本號}.zip
 
 ## 版本歷史
 
-### v2.1.0
-
-- 新增 `generateChartByDatetime(datetime)` API：輸入 yyyyMMddHH 自動起盤
-- 新增 `generateChartNow()` API：依據當前時間起盤
-- 新增輸入驗證與錯誤處理
-- 測試案例擴展至 21 個
-- 新增打包腳本（esbuild）
-- 重寫 `index.html`：極簡風格，模組化代碼，新增 JSON 輸出面板
-
-### v2.0.0
-
-- 完整模組化重構
-- 實作拆補法定局（calculateJuByChaiBu）
-- 獨立網頁介面（內嵌 lunar-javascript 庫）
-- 自動日期轉換與四柱推算
-- 詳細的中文文檔與 API 參考
+詳見 [CHANGELOG.md](./CHANGELOG.md)
 
 ---
 
