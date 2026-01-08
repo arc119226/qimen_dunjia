@@ -99,10 +99,52 @@
 
 ### 方式二：Node.js 環境
 
-#### 安裝
+#### 安裝依賴
 
 ```bash
-npm install lunar-javascript
+npm install
+```
+
+#### 常用指令
+
+| 指令 | 說明 |
+|------|------|
+| `npm test` | 執行單元測試（21 個測試案例） |
+| `npm run build` | 打包為 ES Module（排除 lunar-javascript） |
+| `npm run build:standalone` | 打包為獨立 IIFE（包含所有依賴） |
+
+#### 單元測試
+
+```bash
+npm test
+```
+
+測試涵蓋：
+- 陽遁/陰遁局數計算
+- 甲遁邏輯處理
+- `generateChartByDatetime` API（日期解析、節氣、三元）
+- `generateChartNow` API
+- 輸入驗證（格式、範圍檢查）
+- API 一致性驗證
+
+#### 打包
+
+**ES Module 格式**（需外部引入 lunar-javascript）：
+```bash
+npm run build
+# 輸出：dist/qimen.min.js
+```
+
+**獨立 IIFE 格式**（瀏覽器直接使用）：
+```bash
+npm run build:standalone
+# 輸出：dist/qimen.standalone.min.js
+# 使用：window.Qimen.generateChartByDatetime('2024011510')
+```
+
+首次打包前需安裝開發依賴：
+```bash
+npm install
 ```
 
 #### 只有日期時間，自動起局（推薦）
@@ -480,18 +522,30 @@ qimen/
 │                   # - 八門、九星、八神飛布
 │                   # - 拆補法定局（calculateJuByChaiBu）
 ├── qimen.js        # 主控函數
-│                   # - generateQimenChart：整合排盤
-│                   # - chartToObject：轉換為物件
-│                   # - chartToJSON：轉換為 JSON
+│                   # - generateQimenChart：手動起盤
+│                   # - generateChartByDatetime：日期時間起盤
+│                   # - generateChartNow：當前時間起盤
+│                   # - chartToObject / chartToJSON：格式轉換
 ├── lunar.js        # 農曆轉換庫（lunar-javascript）
-├── test.js         # 測試模組
+├── test.js         # 測試模組（21 個測試案例）
 ├── package.json    # 專案配置（ES Module）
+├── dist/           # 打包輸出目錄（npm run build 生成）
+│   ├── qimen.min.js           # ES Module 格式
+│   └── qimen.standalone.min.js # IIFE 格式（瀏覽器用）
 └── README.md       # 本文件
 ```
 
 ---
 
 ## 版本歷史
+
+### v2.1.0
+
+- 新增 `generateChartByDatetime(datetime)` API：輸入 yyyyMMddHH 自動起盤
+- 新增 `generateChartNow()` API：依據當前時間起盤
+- 新增輸入驗證與錯誤處理
+- 測試案例擴展至 21 個
+- 新增打包腳本（esbuild）
 
 ### v2.0.0
 

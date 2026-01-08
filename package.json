@@ -1,11 +1,13 @@
 {
   "name": "qimen-dunjia",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "奇門遁甲排盤系統 - 重構版",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node test.js"
+    "test": "node test.js",
+    "build": "esbuild index.js --bundle --minify --format=esm --outfile=dist/qimen.min.js --external:lunar-javascript",
+    "build:standalone": "esbuild index.js --bundle --minify --format=iife --global-name=Qimen --outfile=dist/qimen.standalone.min.js"
   },
   "keywords": [
     "qimen",
@@ -18,5 +20,8 @@
   "license": "MIT",
   "dependencies": {
     "lunar-javascript": "^1.7.7"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0"
   }
 }
