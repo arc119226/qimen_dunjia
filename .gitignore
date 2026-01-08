@@ -80,7 +80,7 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
+# dist - Keep dist/ for release (contains bundled files)
 
 # Gatsby files
 .cache/
@@ -140,4 +140,4 @@ vite.config.ts.timestamp-*
 
 # Claude Code
 .claude/
-CLAUDE.md
+# CLAUDE.md - Keep for project documentation
