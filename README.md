@@ -84,8 +84,8 @@
 │ constants.js │   utils.js   │     calculations.js       │
 │  （常數表）   │ （工具函數）  │    （五層運算函數）        │
 ├──────────────┴──────────────┴───────────────────────────┤
-│                      lunar.js                           │
-│              （農曆轉換：lunar-javascript）              │
+│               lunar-javascript (npm)                    │
+│              （農曆轉換：node_modules）                  │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -424,7 +424,7 @@ getKongWangDirection('甲子')  // 返回 '西北'（戌亥空）
 
 ### 使用方式
 
-直接用瀏覽器開啟 `index.html`，無需安裝任何依賴。lunar.js 已內嵌於 HTML 檔案中。
+直接用瀏覽器開啟 `index.html`，無需安裝任何依賴。lunar-javascript 庫已內嵌於 HTML 檔案中。
 
 ---
 
@@ -501,7 +501,7 @@ getKongWangDirection('甲子')  // 返回 '西北'（戌亥空）
 
 ```
 qimen/
-├── index.html      # 完整網頁介面（內嵌 lunar.js）
+├── index.html      # 完整網頁介面（內嵌 lunar-javascript）
 ├── index.js        # 統一入口，匯出所有公開 API
 ├── constants.js    # 常數定義
 │                   # - JIEQI_JUSHU：節氣局數配置表
@@ -526,7 +526,6 @@ qimen/
 │                   # - generateChartByDatetime：日期時間起盤
 │                   # - generateChartNow：當前時間起盤
 │                   # - chartToObject / chartToJSON：格式轉換
-├── lunar.js        # 農曆轉換庫（lunar-javascript）
 ├── test.js         # 測試模組（21 個測試案例）
 ├── package.json    # 專案配置（ES Module）
 ├── dist/           # 打包輸出目錄（npm run build 生成）
@@ -551,7 +550,7 @@ qimen/
 
 - 完整模組化重構
 - 實作拆補法定局（calculateJuByChaiBu）
-- 內嵌 lunar.js 的獨立網頁介面
+- 獨立網頁介面（內嵌 lunar-javascript 庫）
 - 自動日期轉換與四柱推算
 - 詳細的中文文檔與 API 參考
 
