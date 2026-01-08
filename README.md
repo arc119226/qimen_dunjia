@@ -105,68 +105,22 @@
 npm install lunar-javascript
 ```
 
-#### 只有日期時間，自動起局
+#### 只有日期時間，自動起局（推薦）
 
 這是最常見的使用場景。輸入西曆日期時間，系統自動完成：農曆轉換 → 四柱推算 → 節氣判定 → 拆補法定局 → 完整排盤。
 
 ```javascript
-import { Solar } from 'lunar-javascript';
-import { generateQimenChart, chartToObject } from './index.js';
-import { calculateJuByChaiBu, JIEQI_JUSHU, YUAN_NAMES } from './index.js';
+import { generateChartByDatetime, chartToObject } from './index.js';
 
-/**
- * 從日期時間字串直接起局
- * @param {string} datetime - 格式：YYYYMMDDHH（24小時制，HH 為 0-23）
- * @returns {Object} 完整盤局資料
- */
-function qimenFromDatetime(datetime) {
-    // 解析日期時間
-    const year = parseInt(datetime.substring(0, 4));
-    const month = parseInt(datetime.substring(4, 6));
-    const day = parseInt(datetime.substring(6, 8));
-    const hour = parseInt(datetime.substring(8, 10));
-    
-    // 建立 Solar 物件
-    const solar = Solar.fromYmdHms(year, month, day, hour, 0, 0);
-    const lunar = solar.getLunar();
-    
-    // 取得四柱
-    const yearPillar = lunar.getYearInGanZhiExact();
-    const monthPillar = lunar.getMonthInGanZhiExact();
-    const dayPillar = lunar.getDayInGanZhiExact();
-    const timePillar = lunar.getTimeInGanZhi();
-    
-    // 拆補法定局
-    const juResult = calculateJuByChaiBu(solar, JIEQI_JUSHU, YUAN_NAMES);
-    
-    // 生成盤局
-    const data = [
-        yearPillar, 
-        monthPillar, 
-        dayPillar, 
-        timePillar, 
-        juResult.gameNumber, 
-        juResult.yinYang
-    ];
-    
-    const chart = generateQimenChart(datetime, data);
-    const chartObj = chartToObject(chart);
-    
-    // 附加定局資訊
-    chartObj['節氣'] = juResult.jieQiName;
-    chartObj['三元'] = juResult.yuanName;
-    chartObj['節後天數'] = juResult.daysSinceJieQi;
-    
-    return chartObj;
-}
+// 2024年1月15日上午10時
+const chart = generateChartByDatetime('2024011510');
+const result = chartToObject(chart);
 
-// 使用範例：2024年1月15日上午10時
-const result = qimenFromDatetime('2024011510');
-
-console.log('節氣：', result['節氣']);
-console.log('三元：', result['三元']);
-console.log('陰陽遁：', result['陰陽']);
-console.log('局數：', result['局數']);
+console.log('節氣：', result['節氣']);      // 小寒
+console.log('三元：', result['三元']);      // 中元
+console.log('陰陽遁：', result['陰陽']);    // 陽
+console.log('局數：', result['局數']);      // 8
+console.log('四柱：', result['年柱'], result['月柱'], result['日柱'], result['時柱']);
 console.log('值符：', result['值符']);
 console.log('值使：', result['值使']);
 console.log('地盤：', result['地盤']);
@@ -174,6 +128,22 @@ console.log('天盤：', result['天盤']);
 console.log('八門：', result['天門']);
 console.log('九星：', result['九星']);
 console.log('八神：', result['八神']);
+```
+
+#### 依據當前時間起盤
+
+適用於即時占卜場景，一行代碼搞定：
+
+```javascript
+import { generateChartNow, chartToObject } from './index.js';
+
+// 使用系統當前時間自動起盤
+const chart = generateChartNow();
+const result = chartToObject(chart);
+
+console.log('當前時間盤局：');
+console.log(`${result['年柱']}年 ${result['月柱']}月 ${result['日柱']}日 ${result['時柱']}時`);
+console.log(`${result['節氣']} ${result['三元']} ${result['陰陽']}遁${result['局數']}局`);
 ```
 
 #### 已知四柱與局數，手動起局
@@ -233,11 +203,57 @@ const diPan = getDiPan(true, 5);
 
 ## API 參考
 
+### 便捷起盤函數（推薦）
+
+#### `generateChartByDatetime(datetime)`
+
+從日期時間字串直接起盤。自動完成四柱計算、節氣判定、拆補法定局。
+
+**參數：**
+- `datetime` (string)：日期時間字串，格式 `yyyyMMddHH`（24小時制，HH 為 0-23）
+
+**返回：** Map 物件，包含完整盤局資訊，額外包含：
+- `節氣`：當前節氣名稱
+- `三元`：上元/中元/下元
+- `節後天數`：距離節氣交接的天數
+
+**範例：**
+```javascript
+import { generateChartByDatetime, chartToObject } from './index.js';
+
+const chart = generateChartByDatetime('2024011510');
+const obj = chartToObject(chart);
+
+console.log(obj['節氣']);  // 小寒
+console.log(obj['三元']);  // 中元
+console.log(obj['局數']);  // 8
+```
+
+**錯誤處理：**
+- 格式不正確（非10位數字字串）會拋出錯誤
+- 月份、日期、小時超出範圍會拋出錯誤
+
+#### `generateChartNow()`
+
+依據當前系統時間起盤。適用於即時占卜場景。
+
+**返回：** Map 物件，包含完整盤局資訊（同 `generateChartByDatetime`）
+
+**範例：**
+```javascript
+import { generateChartNow, chartToObject } from './index.js';
+
+const chart = generateChartNow();
+const obj = chartToObject(chart);
+
+console.log(`${obj['節氣']} ${obj['三元']} ${obj['陰陽']}遁${obj['局數']}局`);
+```
+
 ### 主函數
 
 #### `generateQimenChart(id, data)`
 
-生成完整的奇門遁甲盤局。
+生成完整的奇門遁甲盤局。需手動提供四柱和局數。
 
 **參數：**
 - `id` (string)：盤局識別碼

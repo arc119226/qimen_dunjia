@@ -140,6 +140,8 @@ export {
 // 匯出主控函數
 export {
     generateQimenChart,
+    generateChartByDatetime,
+    generateChartNow,
     chartToObject,
     chartToJSON
 } from './qimen.js';

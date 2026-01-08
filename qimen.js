@@ -11,6 +11,8 @@
  * const result = generateQimenChart(dateTimeString, [年柱, 月柱, 日柱, 時柱, 局數, 陰陽]);
  */
 
+import { Solar } from 'lunar-javascript';
+
 import {
     getXunHead,
     getFuShou,
@@ -19,6 +21,8 @@ import {
     resolveJiaHiding,
     extractTianGan
 } from './utils.js';
+
+import { JIEQI_JUSHU, YUAN_NAMES } from './constants.js';
 
 import {
     getHeTu,
@@ -35,7 +39,8 @@ import {
     calculateNineStars,
     getTianQinDirection,
     calculateEightGods,
-    getZhiShiPosition
+    getZhiShiPosition,
+    calculateJuByChaiBu
 } from './calculations.js';
 
 // ============================================================================
@@ -244,7 +249,7 @@ export function chartToObject(resultMap) {
 
 /**
  * 將盤局結果轉換為 JSON 字串
- * 
+ *
  * @param {Map} resultMap - generateQimenChart 的輸出
  * @param {number} indent - 縮排空格數（預設為 2）
  * @returns {string} JSON 字串
@@ -253,8 +258,152 @@ export function chartToJSON(resultMap, indent = 2) {
     return JSON.stringify(chartToObject(resultMap), null, indent);
 }
 
+// ============================================================================
+// 便捷起盤函數
+// ============================================================================
+
+/**
+ * 解析日期時間字串
+ *
+ * @param {string} datetime - 日期時間字串，格式：yyyyMMddHH
+ * @returns {Object} 解析後的年月日時
+ * @throws {Error} 若格式無效則拋出錯誤
+ */
+function parseDatetime(datetime) {
+    if (typeof datetime !== 'string' || datetime.length !== 10) {
+        throw new Error('日期時間格式錯誤：必須為 yyyyMMddHH 格式（10 位數字）');
+    }
+
+    const year = parseInt(datetime.substring(0, 4), 10);
+    const month = parseInt(datetime.substring(4, 6), 10);
+    const day = parseInt(datetime.substring(6, 8), 10);
+    const hour = parseInt(datetime.substring(8, 10), 10);
+
+    // 驗證數值範圍
+    if (isNaN(year) || year < 1 || year > 9999) {
+        throw new Error('年份無效：必須為 1-9999');
+    }
+    if (isNaN(month) || month < 1 || month > 12) {
+        throw new Error('月份無效：必須為 1-12');
+    }
+    if (isNaN(day) || day < 1 || day > 31) {
+        throw new Error('日期無效：必須為 1-31');
+    }
+    if (isNaN(hour) || hour < 0 || hour > 23) {
+        throw new Error('小時無效：必須為 0-23');
+    }
+
+    return { year, month, day, hour };
+}
+
+/**
+ * 從 Solar 物件生成盤局
+ *
+ * @param {Solar} solar - lunar-javascript 的 Solar 物件
+ * @param {string} label - 盤局標識
+ * @returns {Object} 包含盤局和定局資訊的物件
+ */
+function generateChartFromSolar(solar, label) {
+    const lunar = solar.getLunar();
+
+    // 取得四柱（使用精確計算，考慮節氣交接）
+    const yearPillar = lunar.getYearInGanZhiExact();
+    const monthPillar = lunar.getMonthInGanZhiExact();
+    const dayPillar = lunar.getDayInGanZhiExact();
+    const timePillar = lunar.getTimeInGanZhi();
+
+    // 拆補法定局
+    const juResult = calculateJuByChaiBu(solar, JIEQI_JUSHU, YUAN_NAMES);
+
+    // 組合輸入參數
+    const data = [
+        yearPillar,
+        monthPillar,
+        dayPillar,
+        timePillar,
+        juResult.gameNumber,
+        juResult.yinYang
+    ];
+
+    // 生成盤局
+    const chart = generateQimenChart(label, data);
+
+    return {
+        chart,
+        juResult,
+        solar,
+        lunar
+    };
+}
+
+/**
+ * 從日期時間字串直接起盤
+ *
+ * 此函數自動完成：
+ * 1. 解析日期時間
+ * 2. 計算四柱（年月日時干支）
+ * 3. 使用拆補法確定局數和陰陽遁
+ * 4. 生成完整盤局
+ *
+ * @param {string} datetime - 日期時間字串，格式：yyyyMMddHH（24小時制，HH 為 0-23）
+ * @returns {Map} 完整的盤局結果，額外包含節氣、三元等定局資訊
+ *
+ * @example
+ * // 2024年1月15日上午10時
+ * const chart = generateChartByDatetime('2024011510');
+ * const obj = chartToObject(chart);
+ * console.log(obj['節氣']);  // 小寒
+ * console.log(obj['三元']);  // 中元
+ * console.log(obj['局數']);  // 8
+ */
+export function generateChartByDatetime(datetime) {
+    // 解析日期時間
+    const { year, month, day, hour } = parseDatetime(datetime);
+
+    // 建立 Solar 物件
+    const solar = Solar.fromYmdHms(year, month, day, hour, 0, 0);
+
+    // 生成盤局
+    const { chart, juResult } = generateChartFromSolar(solar, datetime);
+
+    // 附加定局資訊到結果
+    chart.set('節氣', juResult.jieQiName);
+    chart.set('三元', juResult.yuanName);
+    chart.set('節後天數', juResult.daysSinceJieQi);
+
+    return chart;
+}
+
+/**
+ * 依據當前時間起盤
+ *
+ * 此函數使用系統當前時間自動起盤，適用於即時占卜。
+ *
+ * @returns {Map} 完整的盤局結果，額外包含節氣、三元等定局資訊
+ *
+ * @example
+ * const chart = generateChartNow();
+ * const obj = chartToObject(chart);
+ * console.log(obj['年柱'], obj['月柱'], obj['日柱'], obj['時柱']);
+ * console.log(obj['節氣'], obj['三元'], obj['局數']);
+ */
+export function generateChartNow() {
+    const now = new Date();
+
+    // 格式化為 yyyyMMddHH
+    const datetime =
+        now.getFullYear().toString() +
+        (now.getMonth() + 1).toString().padStart(2, '0') +
+        now.getDate().toString().padStart(2, '0') +
+        now.getHours().toString().padStart(2, '0');
+
+    return generateChartByDatetime(datetime);
+}
+
 export default {
     generateQimenChart,
+    generateChartByDatetime,
+    generateChartNow,
     chartToObject,
     chartToJSON
 };

@@ -15,5 +15,8 @@
     "divination"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "lunar-javascript": "^1.7.7"
+  }
 }
