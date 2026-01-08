@@ -1,4 +1,4 @@
-# 奇門遁甲排盤系統 v2.0
+# 奇門遁甲排盤系統
 
 本系統實現奇門遁甲的完整排盤運算，採用拆補法定局，將特定時刻的干支資訊轉化為多層次的空間分布圖，用於時空決策分析。
 
@@ -14,6 +14,9 @@
 6. [拆補法定局原理](#拆補法定局原理)
 7. [節氣局數表](#節氣局數表)
 8. [檔案結構](#檔案結構)
+9. [Release 發布策略](#release-發布策略)
+10. [版本歷史](#版本歷史)
+11. [授權](#授權)
 
 ---
 
@@ -542,33 +545,34 @@ qimen/
 
 ## Release 發布策略
 
-本專案採用**完整源碼 + 打包產物**的 Release 模式：
+本專案採用**打包產物 + GitHub 自動源碼**的 Release 模式。
 
-### Release Zip 內容
+### Release 附件
+
+每個 Release 包含：
+
+| 附件 | 內容 | 用途 |
+|------|------|------|
+| `qimen-dunjia-v{版本}.zip` | 打包產物 + 示例 + 文檔 | 快速使用 |
+| `Source code (zip/tar.gz)` | 完整源碼 | GitHub 自動生成，二次開發用 |
+
+### Zip 內容
 
 ```
 qimen-dunjia-v{版本號}.zip
-├── dist/
-│   ├── qimen.min.js           # ES Module 格式（需外部 lunar-javascript）
-│   ├── qimen.standalone.min.js # IIFE 格式（瀏覽器直接使用）
-│   └── API.md                 # 打包產物使用說明
-├── index.html                 # 網頁示例
-├── index.js                   # 源碼入口
-├── qimen.js                   # 主控函數
-├── constants.js               # 常數定義
-├── utils.js                   # 工具函數
-├── calculations.js            # 計算函數
-├── package.json               # 專案配置
-└── README.md                  # 專案說明
+├── qimen.min.js           # ES Module（~13KB，需外部 lunar-javascript）
+├── qimen.standalone.min.js # IIFE（~337KB，瀏覽器直接使用）
+├── API.md                 # API 使用說明
+└── index.html             # 網頁示例
 ```
 
 ### 使用場景
 
 | 需求 | 使用檔案 |
 |------|----------|
-| 瀏覽器 `<script>` 直接用 | `dist/qimen.standalone.min.js` |
-| Node.js / Bundler | `dist/qimen.min.js` + `npm install lunar-javascript` |
-| 二次開發 / 學習 | 源碼檔案 |
+| 瀏覽器 `<script>` 直接用 | `qimen.standalone.min.js` |
+| Node.js / Bundler | `qimen.min.js` + `npm install lunar-javascript` |
+| 二次開發 / 學習 | 下載 GitHub 自動生成的 Source code |
 
 ---
 
