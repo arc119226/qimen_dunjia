@@ -1,23 +1,53 @@
 {
   "name": "qimen-dunjia",
   "version": "2.1.0",
-  "description": "奇門遁甲排盤系統 - 重構版",
+  "description": "奇門遁甲排盤系統 - Qimen Dunjia divination chart generator with Chai Bu method",
   "main": "index.js",
   "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./dist/qimen.min.js": "./dist/qimen.min.js"
+  },
+  "files": [
+    "index.js",
+    "qimen.js",
+    "constants.js",
+    "utils.js",
+    "calculations.js",
+    "dist/",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "test": "node test.js",
     "build": "esbuild index.js --bundle --minify --format=esm --outfile=dist/qimen.min.js --external:lunar-javascript",
-    "build:standalone": "esbuild index.js --bundle --minify --format=iife --global-name=Qimen --outfile=dist/qimen.standalone.min.js"
+    "build:standalone": "esbuild index.js --bundle --minify --format=iife --global-name=Qimen --outfile=dist/qimen.standalone.min.js",
+    "prepublishOnly": "npm test && npm run build && npm run build:standalone"
   },
   "keywords": [
     "qimen",
     "dunjia",
+    "qimen-dunjia",
     "奇門遁甲",
+    "奇门遁甲",
     "chinese-metaphysics",
-    "divination"
+    "divination",
+    "chinese-calendar",
+    "lunar-calendar",
+    "feng-shui",
+    "bazi",
+    "yi-jing"
   ],
-  "author": "",
+  "author": "arc119226",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arc119226/qimen_dunjia.git"
+  },
+  "homepage": "https://github.com/arc119226/qimen_dunjia#readme",
+  "bugs": {
+    "url": "https://github.com/arc119226/qimen_dunjia/issues"
+  },
   "dependencies": {
     "lunar-javascript": "^1.7.7"
   },

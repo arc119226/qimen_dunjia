@@ -1,5 +1,8 @@
 # 奇門遁甲排盤系統
 
+[![npm version](https://img.shields.io/npm/v/qimen-dunjia.svg)](https://www.npmjs.com/package/qimen-dunjia)
+[![license](https://img.shields.io/npm/l/qimen-dunjia.svg)](https://github.com/arc119226/qimen_dunjia/blob/main/LICENSE)
+
 本系統實現奇門遁甲的完整排盤運算，採用拆補法定局，將特定時刻的干支資訊轉化為多層次的空間分布圖，用於時空決策分析。
 
 ---
@@ -96,15 +99,32 @@
 
 ## 快速開始
 
-### 方式一：網頁介面（最簡單）
+### 方式一：npm 安裝（推薦）
+
+```bash
+npm install qimen-dunjia
+```
+
+```javascript
+import { generateChartByDatetime, chartToObject } from 'qimen-dunjia';
+
+// 指定時間起盤
+const chart = generateChartByDatetime('2024011510');  // 2024-01-15 10:00
+const result = chartToObject(chart);
+console.log(result['節氣'], result['三元'], result['局數']);  // 小寒 中元 8
+```
+
+### 方式二：網頁介面（最簡單）
 
 直接用瀏覽器開啟 `index.html`，輸入日期時間即可自動排盤。
 
-### 方式二：Node.js 環境
+### 方式三：本地開發
 
 #### 安裝依賴
 
 ```bash
+git clone https://github.com/arc119226/qimen_dunjia.git
+cd qimen_dunjia
 npm install
 ```
 
