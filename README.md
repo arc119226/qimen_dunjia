@@ -1,3 +1,5 @@
+
+
 # 奇門遁甲排盤系統
 
 [![npm version](https://img.shields.io/npm/v/qimen-dunjia.svg)](https://www.npmjs.com/package/qimen-dunjia)
@@ -409,9 +411,14 @@ getKongWangDirection('甲子')  // 返回 '西北'（戌亥空）
 
 計算八門飛布。
 
-#### `calculateNineStars(isYang, zhiFuStar, flyStep)`
+#### `calculateNineStars(zhiFuStar, tianGan, diPan)`
 
 計算九星飛布。
+
+**參數：**
+- `zhiFuStar` (string)：值符星
+- `tianGan` (string)：當前時干（已處理甲遁）
+- `diPan` (Array)：地盤配置
 
 #### `calculateEightGods(isYang, tianGan, diPan)`
 
