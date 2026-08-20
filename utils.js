@@ -124,7 +124,10 @@ export function normalizeZhongPalace(index) {
 
 /**
  * 在陣列中查找元素並處理中宮替代
- * 
+ *
+ * 註：本模組與 calculations.js 內部未使用（各處直接組合 indexOf 與
+ * normalizeZhongPalace），匯出僅供外部呼叫端使用。
+ *
  * @param {Array} array - 要搜尋的陣列
  * @param {*} element - 要查找的元素
  * @returns {number} 處理過中宮替代的索引

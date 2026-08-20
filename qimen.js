@@ -35,7 +35,7 @@ import {
     calculateEightDoors,
     getOriginalStars,
     getZhiFuStar,
-    getZhiFuPosition,
+    getZhiFuStarPosition,
     calculateNineStars,
     getTianQinDirection,
     calculateEightGods,
@@ -60,11 +60,16 @@ function validateInput(data) {
     
     const [yearPillar, monthPillar, dayPillar, timePillar, gameNumber, yinYang] = data;
     
-    // 驗證干支格式（應為兩個字）
+    // 驗證干支格式與有效性
+    const pillarNames = ['年柱', '月柱', '日柱', '時柱'];
     [yearPillar, monthPillar, dayPillar, timePillar].forEach((pillar, index) => {
         if (typeof pillar !== 'string' || pillar.length !== 2) {
-            const pillarNames = ['年柱', '月柱', '日柱', '時柱'];
             throw new Error(`${pillarNames[index]}格式錯誤：必須為兩個字的干支（如「甲子」）`);
+        }
+        // 僅檢查長度不足以擋下「甲乙」這類非法組合：查不到旬首會讓符首成為 undefined，
+        // 後續 indexOf 全部回傳 -1，最終產出一張看似完整、實則無意義的盤而不報錯。
+        if (getXunHead(pillar) === null) {
+            throw new Error(`${pillarNames[index]}不是有效的干支：${pillar}（必須為六十甲子之一）`);
         }
     });
     
@@ -175,8 +180,9 @@ export function generateQimenChart(dateTimeString, data) {
     // 10. 第四層：九星
     const originalStars = getOriginalStars();
     const zhiFuStar = getZhiFuStar(fuShou, diPan);
-    const zhiFuPosition = getZhiFuPosition(effectiveTimeGan, diPan);
     const nineStars = calculateNineStars(zhiFuStar, effectiveTimeGan, diPan);
+    // 落宮由九星飛布結果反查，確保與「九星」陣列永遠一致
+    const zhiFuPosition = getZhiFuStarPosition(zhiFuStar, nineStars);
     const tianQinDirection = getTianQinDirection(nineStars);
     
     // 11. 第五層：八神
@@ -263,6 +269,19 @@ export function chartToJSON(resultMap, indent = 2) {
 // ============================================================================
 
 /**
+ * 取得指定年月的實際天數（西曆閏年規則）
+ *
+ * @param {number} year - 西元年
+ * @param {number} month - 月份 1-12
+ * @returns {number} 該月天數
+ */
+function getDaysInMonth(year, month) {
+    const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    const daysPerMonth = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return daysPerMonth[month - 1];
+}
+
+/**
  * 解析日期時間字串
  *
  * @param {string} datetime - 日期時間字串，格式：yyyyMMddHH
@@ -270,7 +289,8 @@ export function chartToJSON(resultMap, indent = 2) {
  * @throws {Error} 若格式無效則拋出錯誤
  */
 function parseDatetime(datetime) {
-    if (typeof datetime !== 'string' || datetime.length !== 10) {
+    // 必須是純數字：先前用 parseInt 逐段解析，'2024011X10' 會被靜默當成 2024-01-01
+    if (typeof datetime !== 'string' || !/^[0-9]{10}$/.test(datetime)) {
         throw new Error('日期時間格式錯誤：必須為 yyyyMMddHH 格式（10 位數字）');
     }
 
@@ -280,16 +300,18 @@ function parseDatetime(datetime) {
     const hour = parseInt(datetime.substring(8, 10), 10);
 
     // 驗證數值範圍
-    if (isNaN(year) || year < 1 || year > 9999) {
+    if (year < 1 || year > 9999) {
         throw new Error('年份無效：必須為 1-9999');
     }
-    if (isNaN(month) || month < 1 || month > 12) {
+    if (month < 1 || month > 12) {
         throw new Error('月份無效：必須為 1-12');
     }
-    if (isNaN(day) || day < 1 || day > 31) {
-        throw new Error('日期無效：必須為 1-31');
+    // 依實際月份天數檢查，否則 2 月 31 日會被靜默進位到 3 月
+    const maxDay = getDaysInMonth(year, month);
+    if (day < 1 || day > maxDay) {
+        throw new Error(`日期無效：${year} 年 ${month} 月僅有 ${maxDay} 天，收到 ${day}`);
     }
-    if (isNaN(hour) || hour < 0 || hour > 23) {
+    if (hour < 0 || hour > 23) {
         throw new Error('小時無效：必須為 0-23');
     }
 

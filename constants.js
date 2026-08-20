@@ -10,6 +10,25 @@
  * - 六甲旬首與符首對應
  */
 
+/**
+ * 遞迴凍結物件與其所有巢狀成員
+ *
+ * Object.freeze 只做淺凍結，巢狀的陣列（如 DIPAN_YANG[1]、FLY_PATH.CLOCKWISE）
+ * 仍可被修改。本模組的所有表格都編碼了經數百年驗證的傳統公式，不應在執行期被更動，
+ * 故一律以此函數凍結。
+ *
+ * @param {Object|Array} obj - 要凍結的物件
+ * @returns {Object|Array} 同一個物件（已深度凍結）
+ */
+function deepFreeze(obj) {
+    for (const value of Object.values(obj)) {
+        if (value && typeof value === 'object') {
+            deepFreeze(value);
+        }
+    }
+    return Object.freeze(obj);
+}
+
 // ============================================================================
 // 二十四節氣局數配置（拆補法定局用）
 // ============================================================================
@@ -17,14 +36,15 @@
  * 節氣局數表
  * 
  * 拆補法原理：
- * - 以節氣交接時刻為嚴格分界
- * - 每個節氣分為上、中、下三元，每元5天
- * - 從節氣交接開始計算天數來判定三元
+ * - 以節氣交接「時刻」為嚴格分界（非曆日分界）
+ * - 每個節氣分為上、中、下三元，每元為自交接時刻起算的 5×24 小時
+ *   上元：交接後 0 ～ 未滿 5 天；中元：5 ～ 未滿 10 天；下元：10 天以後
+ * - 因此三元的切換點落在每日的節氣交接時刻，而非午夜
  * 
  * yang: 是否為陽遁
  * ju: [上元局數, 中元局數, 下元局數]
  */
-export const JIEQI_JUSHU = Object.freeze({
+export const JIEQI_JUSHU = deepFreeze({
     // 陽遁（冬至到芒種）- 陽氣漸生，局數順飛
     '冬至': { yang: true, ju: [1, 7, 4] },
     '小寒': { yang: true, ju: [2, 8, 5] },
@@ -54,7 +74,24 @@ export const JIEQI_JUSHU = Object.freeze({
 });
 
 /** 三元名稱 */
-export const YUAN_NAMES = Object.freeze(['上元', '中元', '下元']);
+export const YUAN_NAMES = deepFreeze(['上元', '中元', '下元']);
+
+/**
+ * 節氣名稱別名表（簡體 → 繁體）
+ *
+ * lunar-javascript 輸出簡體節氣名，而 JIEQI_JUSHU 以繁體為 key。
+ * 二十四節氣中僅以下 5 個存在簡繁差異，其餘 19 個兩者同形。
+ *
+ * 注意：查表務必以「整個名稱」比對，不可用子字串替換——
+ * 部分匹配正是先前漏掉「小满」「芒种」而導致每年約 32 天無法起盤的原因。
+ */
+export const JIEQI_ALIAS = deepFreeze({
+    '惊蛰': '驚蟄',
+    '谷雨': '穀雨',
+    '小满': '小滿',
+    '芒种': '芒種',
+    '处暑': '處暑'
+});
 
 // ============================================================================
 // 九宮索引定義
@@ -72,7 +109,7 @@ export const YUAN_NAMES = Object.freeze(['上元', '中元', '下元']);
  *   東    中央   西
  *   東北   北    西北
  */
-export const PALACE = Object.freeze({
+export const PALACE = deepFreeze({
     XUN: 0,    // 巽宮 - 東南
     LI: 1,     // 離宮 - 南
     KUN: 2,    // 坤宮 - 西南
@@ -107,7 +144,7 @@ export const ZHONG_SUBSTITUTE = PALACE.KUN;
  * 
  * 按數字 1→2→3→4→5→6→7→8→9 的順序即為飛布軌跡
  */
-export const FLY_PATH = Object.freeze({
+export const FLY_PATH = deepFreeze({
     /**
      * 順時針軌跡（不含中宮）
      * 用於：陽局天盤、陽局八門、九星飛布
@@ -142,7 +179,7 @@ export const FLY_PATH = Object.freeze({
  * 九宮方位箭頭
  * 用於顯示天禽寄宮等需要方向指示的場合
  */
-export const DIRECTION_ARROWS = Object.freeze([
+export const DIRECTION_ARROWS = deepFreeze([
     '↘', '↓', '↙',  // 巽(東南), 離(南), 坤(西南)
     '→', '',  '←',  // 震(東), 中(無), 兌(西)
     '↗', '↑', '↖'   // 艮(東北), 坎(北), 乾(西北)
@@ -161,7 +198,7 @@ export const DIRECTION_ARROWS = Object.freeze([
  * 
  * 先天八卦代表宇宙形成前的理想秩序，強調對立配對
  */
-export const HETU_BAGUA = Object.freeze([
+export const HETU_BAGUA = deepFreeze([
     '兌', '乾', '巽',
     '離', '中', '坎',
     '震', '坤', '艮'
@@ -180,10 +217,21 @@ export const HETU_BAGUA = Object.freeze([
  * 
  * 後天八卦代表萬物形成後的實際運作，對應八方位與四季
  */
-export const LUOSHU_BAGUA = Object.freeze([
+export const LUOSHU_BAGUA = deepFreeze([
     '巽', '離', '坤',
     '震', '中', '兌',
     '艮', '坎', '乾'
+]);
+
+/**
+ * 九宮方位名稱（按洛書九宮順序，與 LUOSHU_BAGUA 一一對應）
+ *
+ * 供顯示層標示各宮方位使用
+ */
+export const DIRECTIONS = deepFreeze([
+    '東南', '南',  '西南',
+    '東',   '中',  '西',
+    '東北', '北',  '西北'
 ]);
 
 // ============================================================================
@@ -193,7 +241,7 @@ export const LUOSHU_BAGUA = Object.freeze([
  * 飛星名稱（一白至九紫）
  * 用於玄空飛星風水系統
  */
-export const FLYING_STARS = Object.freeze({
+export const FLYING_STARS = deepFreeze({
     1: '一白貪狼',
     2: '二黑巨門',
     3: '三碧祿存',
@@ -210,7 +258,7 @@ export const FLYING_STARS = Object.freeze({
  * key: 入中宮的星數(1-9)
  * value: 九宮各位置的星數（按洛書九宮順序）
  */
-export const FLYING_STAR_CHARTS = Object.freeze({
+export const FLYING_STAR_CHARTS = deepFreeze({
     1: [2, 6, 4, 3, 1, 8, 7, 5, 9],
     2: [3, 7, 5, 4, 2, 9, 8, 6, 1],
     3: [4, 8, 6, 5, 3, 1, 9, 7, 2],
@@ -233,7 +281,7 @@ export const FLYING_STAR_CHARTS = Object.freeze({
  *   天沖(震)  天禽(中)  天柱(兌)
  *   天任(艮)  天蓬(坎)  天心(乾)
  */
-export const QIMEN_STARS = Object.freeze([
+export const QIMEN_STARS = deepFreeze([
     '天輔', '天英', '天芮',
     '天沖', '天禽', '天柱',
     '天任', '天蓬', '天心'
@@ -242,6 +290,9 @@ export const QIMEN_STARS = Object.freeze([
 /**
  * 天禽星索引
  * 天禽居中宮，中宮無門，故需標示其寄託宮位
+ *
+ * 註：本模組內部未使用此常數（九星飛布以 QIMEN_STARS 直接運算），
+ * 匯出僅供外部呼叫端參照。
  */
 export const TIANQIN_INDEX = PALACE.ZHONG;
 
@@ -258,7 +309,7 @@ export const TIANQIN_INDEX = PALACE.ZHONG;
  * 
  * 中宮無門，故索引4為空字串
  */
-export const EIGHT_DOORS_ORIGINAL = Object.freeze([
+export const EIGHT_DOORS_ORIGINAL = deepFreeze([
     '杜門', '景門', '死門',
     '傷門', '',     '驚門',
     '生門', '休門', '開門'
@@ -268,7 +319,7 @@ export const EIGHT_DOORS_ORIGINAL = Object.freeze([
  * 八門飛布順序
  * 從值使門開始，依此順序排列
  */
-export const EIGHT_DOORS_SEQUENCE = Object.freeze([
+export const EIGHT_DOORS_SEQUENCE = deepFreeze([
     '休門', '生門', '傷門', '杜門',
     '景門', '死門', '驚門', '開門'
 ]);
@@ -280,7 +331,7 @@ export const EIGHT_DOORS_SEQUENCE = Object.freeze([
  * 陽局八神
  * 包含：值符、滕蛇、太陰、六合、勾陳、朱雀、九地、九天
  */
-export const EIGHT_GODS_YANG = Object.freeze([
+export const EIGHT_GODS_YANG = deepFreeze([
     '值符', '滕蛇', '太陰', '六合',
     '勾陳', '朱雀', '九地', '九天'
 ]);
@@ -289,7 +340,7 @@ export const EIGHT_GODS_YANG = Object.freeze([
  * 陰局八神
  * 與陽局差異：勾陳→白虎、朱雀→玄武
  */
-export const EIGHT_GODS_YIN = Object.freeze([
+export const EIGHT_GODS_YIN = deepFreeze([
     '值符', '滕蛇', '太陰', '六合',
     '白虎', '玄武', '九地', '九天'
 ]);
@@ -301,7 +352,7 @@ export const EIGHT_GODS_YIN = Object.freeze([
  * 六甲旬首
  * 六十甲子分為六旬，每旬十日，以甲開頭
  */
-export const XUN_HEADS = Object.freeze([
+export const XUN_HEADS = deepFreeze([
     '甲子', '甲戌', '甲申', '甲午', '甲辰', '甲寅'
 ]);
 
@@ -309,7 +360,7 @@ export const XUN_HEADS = Object.freeze([
  * 六旬干支組合
  * 每旬包含十個干支，最後標註該旬的空亡地支
  */
-export const SIX_XUNS = Object.freeze({
+export const SIX_XUNS = deepFreeze({
     '甲子': ['甲子', '乙丑', '丙寅', '丁卯', '戊辰', '己巳', '庚午', '辛未', '壬申', '癸酉'], // 空亡：戌、亥
     '甲戌': ['甲戌', '乙亥', '丙子', '丁丑', '戊寅', '己卯', '庚辰', '辛巳', '壬午', '癸未'], // 空亡：申、酉
     '甲申': ['甲申', '乙酉', '丙戌', '丁亥', '戊子', '己丑', '庚寅', '辛卯', '壬辰', '癸巳'], // 空亡：午、未
@@ -322,7 +373,7 @@ export const SIX_XUNS = Object.freeze({
  * 六甲符首對應
  * 甲所遁藏的六儀：甲子遁戊、甲戌遁己、甲申遁庚、甲午遁辛、甲辰遁壬、甲寅遁癸
  */
-export const XUN_TO_HEAD = Object.freeze({
+export const XUN_TO_HEAD = deepFreeze({
     '甲子': '戊',
     '甲戌': '己',
     '甲申': '庚',
@@ -335,13 +386,13 @@ export const XUN_TO_HEAD = Object.freeze({
  * 六甲孤虛方位
  * 根據旬首判斷該旬的孤虛方位
  */
-export const XUN_TO_KONGWANG_DIRECTION = Object.freeze({
-    '甲子': ['西北'],           // 戌亥空亡 → 西北
-    '甲戌': ['西南西', '西'],   // 申酉空亡 → 西南西、西
-    '甲申': ['南', '南南西'],   // 午未空亡 → 南、南南西
-    '甲午': ['東南'],           // 辰巳空亡 → 東南
-    '甲辰': ['東北東', '東'],   // 寅卯空亡 → 東北東、東
-    '甲寅': ['北', '北北東']    // 子丑空亡 → 北、北北東
+export const XUN_TO_KONGWANG_DIRECTION = deepFreeze({
+    '甲子': ['西北西', '北北西'],  // 戌亥空亡 → 戌(西北西)、亥(北北西)
+    '甲戌': ['西南西', '西'],      // 申酉空亡 → 申(西南西)、酉(西)
+    '甲申': ['南', '南南西'],      // 午未空亡 → 午(南)、未(南南西)
+    '甲午': ['東南東', '南南東'],  // 辰巳空亡 → 辰(東南東)、巳(南南東)
+    '甲辰': ['東北東', '東'],      // 寅卯空亡 → 寅(東北東)、卯(東)
+    '甲寅': ['北', '北北東']       // 子丑空亡 → 子(北)、丑(北北東)
 });
 
 // ============================================================================
@@ -362,7 +413,7 @@ export const XUN_TO_KONGWANG_DIRECTION = Object.freeze({
  * key: 局數(1-9)
  * value: 九宮各位置的天干（按洛書九宮順序）
  */
-export const DIPAN_YANG = Object.freeze({
+export const DIPAN_YANG = deepFreeze({
     1: ['辛', '乙', '己', '庚', '壬', '丁', '丙', '戊', '癸'],
     2: ['庚', '丙', '戊', '己', '辛', '癸', '丁', '乙', '壬'],
     3: ['己', '丁', '乙', '戊', '庚', '壬', '癸', '丙', '辛'],
@@ -379,7 +430,7 @@ export const DIPAN_YANG = Object.freeze({
  * key: 局數(1-9)
  * value: 九宮各位置的天干（按洛書九宮順序）
  */
-export const DIPAN_YIN = Object.freeze({
+export const DIPAN_YIN = deepFreeze({
     1: ['丁', '己', '乙', '丙', '癸', '辛', '庚', '戊', '壬'],
     2: ['丙', '庚', '戊', '乙', '丁', '壬', '辛', '己', '癸'],
     3: ['乙', '辛', '己', '戊', '丙', '癸', '壬', '庚', '丁'],
@@ -392,10 +443,14 @@ export const DIPAN_YIN = Object.freeze({
 });
 
 export default {
+    JIEQI_JUSHU,
+    JIEQI_ALIAS,
+    YUAN_NAMES,
     PALACE,
     ZHONG_SUBSTITUTE,
     FLY_PATH,
     DIRECTION_ARROWS,
+    DIRECTIONS,
     HETU_BAGUA,
     LUOSHU_BAGUA,
     FLYING_STARS,

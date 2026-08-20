@@ -1,0 +1,8 @@
+# 預設讓 Git 自行判斷文字檔並正規化行尾
+* text=auto
+
+# 打包產物固定以 LF 儲存與簽出。
+# 否則在 Windows 上 core.autocrlf 會把簽出的 dist/*.js 轉成 CRLF，
+# 而 esbuild 重建時寫入 LF，導致 `git status` 永遠把 dist/ 標記為已修改
+# ——即使內容是零 byte 差異。
+dist/*.js -text

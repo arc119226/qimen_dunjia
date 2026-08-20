@@ -226,7 +226,7 @@
 <body>
     <div class="container">
         <h1>奇門遁甲排盤系統</h1>
-        <p class="subtitle">API 示例 - v2.1.0</p>
+        <p class="subtitle">API 示例 - v2.2.0</p>
 
         <!-- ========== 輸入區 ========== -->
         <div class="input-section">
@@ -238,7 +238,7 @@
                 <div class="input-group">
                     <label>時辰</label>
                     <select id="inputHour">
-                        <option value="0">子時 (23-01)</option>
+                        <option value="0">早子時 (00-01)</option>
                         <option value="1">丑時 (01-03)</option>
                         <option value="2">寅時 (03-05)</option>
                         <option value="3">卯時 (05-07)</option>
@@ -250,6 +250,7 @@
                         <option value="9">酉時 (17-19)</option>
                         <option value="10">戌時 (19-21)</option>
                         <option value="11">亥時 (21-23)</option>
+                        <option value="12">晚子時 (23-00)</option>
                     </select>
                 </div>
                 <button class="btn" onclick="App.generate()">起盤</button>
@@ -358,383 +359,15 @@
     </div>
 
 <!-- ============================================================================
-     lunar-javascript 庫（內嵌壓縮版）
-     來源：https://github.com/6tail/lunar-javascript
+     奇門遁甲引擎
+     dist/qimen.standalone.min.js 由 npm run build:standalone 產生，
+     已內含 lunar-javascript，完全自足、可離線使用，掛載為全域 Qimen。
+
+     此處刻意不再內嵌一份引擎副本：先前網頁自帶的副本與函式庫逐漸分歧，
+     其節氣過濾邏輯把簡體節氣名整批濾掉，導致驚蟄／穀雨／小滿／芒種／處暑
+     五個節氣期間（每年約 79 天）靜默算出錯誤盤局而不報錯。
      ============================================================================ -->
-<script>
-// lunar-javascript 庫開始
-;(function(root,factory){if(typeof define==='function'&&define.amd){define(factory)}else if(typeof module!='undefined'&&module.exports){module.exports=factory()}else{var o=factory();for(var i in o){root[i]=o[i]}}})(this,function(){var Solar=(function(){var _fromDate=function(date){return _fromYmdHms(date.getFullYear(),date.getMonth()+1,date.getDate(),date.getHours(),date.getMinutes(),date.getSeconds())};var _fromJulianDay=function(julianDay){var d=Math.floor(julianDay+0.5);var f=julianDay+0.5-d;var c;if(d>=2299161){c=Math.floor((d-1867216.25)/36524.25);d+=1+c-Math.floor(c/4)}d+=1524;var year=Math.floor((d-122.1)/365.25);d-=Math.floor(365.25*year);var month=Math.floor(d/30.601);d-=Math.floor(30.601*month);var day=d;if(month>13){month-=13;year-=4715}else{month-=1;year-=4716}f*=24;var hour=Math.floor(f);f-=hour;f*=60;var minute=Math.floor(f);f-=minute;f*=60;var second=Math.round(f);if(second>59){second-=60;minute++}if(minute>59){minute-=60;hour++}if(hour>23){hour-=24;day+=1}return _fromYmdHms(year,month,day,hour,minute,second)};var _fromYmdHms=function(y,m,d,hour,minute,second){var oy=y;var om=m;var od=d;var oh=hour;var oi=minute;var os=second;y*=1;if(isNaN(y)){throw new Error('wrong solar year '+oy)}m*=1;if(isNaN(m)){throw new Error('wrong solar month '+om)}d*=1;if(isNaN(d)){throw new Error('wrong solar day '+od)}hour*=1;if(isNaN(hour)){throw new Error('wrong hour '+oh)}minute*=1;if(isNaN(minute)){throw new Error('wrong minute '+oi)}second*=1;if(isNaN(second)){throw new Error('wrong second '+os)}if(1582===y&&10===m){if(d>4&&d<15){throw new Error('wrong solar year '+y+' month '+m+' day '+d)}}if(m<1||m>12){throw new Error('wrong month '+m)}if(d<1||d>31){throw new Error('wrong day '+d)}if(hour<0||hour>23){throw new Error('wrong hour '+hour)}if(minute<0||minute>59){throw new Error('wrong minute '+minute)}if(second<0||second>59){throw new Error('wrong second '+second)}return{_p:{year:y,month:m,day:d,hour:hour,minute:minute,second:second},subtract:function(solar){return SolarUtil.getDaysBetween(solar.getYear(),solar.getMonth(),solar.getDay(),this._p.year,this._p.month,this._p.day)},subtractMinute:function(solar){var days=this.subtract(solar);var cm=this._p.hour*60+this._p.minute;var sm=solar.getHour()*60+solar.getMinute();var m=cm-sm;if(m<0){m+=1440;days--}m+=days*1440;return m},isAfter:function(solar){if(this._p.year>solar.getYear()){return true}if(this._p.year<solar.getYear()){return false}if(this._p.month>solar.getMonth()){return true}if(this._p.month<solar.getMonth()){return false}if(this._p.day>solar.getDay()){return true}if(this._p.day<solar.getDay()){return false}if(this._p.hour>solar.getHour()){return true}if(this._p.hour<solar.getHour()){return false}if(this._p.minute>solar.getMinute()){return true}if(this._p.minute<solar.getMinute()){return false}return this._p.second>solar.getSecond()},isBefore:function(solar){if(this._p.year>solar.getYear()){return false}if(this._p.year<solar.getYear()){return true}if(this._p.month>solar.getMonth()){return false}if(this._p.month<solar.getMonth()){return true}if(this._p.day>solar.getDay()){return false}if(this._p.day<solar.getDay()){return true}if(this._p.hour>solar.getHour()){return false}if(this._p.hour<solar.getHour()){return true}if(this._p.minute>solar.getMinute()){return false}if(this._p.minute<solar.getMinute()){return true}return this._p.second<solar.getSecond()},getYear:function(){return this._p.year},getMonth:function(){return this._p.month},getDay:function(){return this._p.day},getHour:function(){return this._p.hour},getMinute:function(){return this._p.minute},getSecond:function(){return this._p.second},getJulianDay:function(){var y=this._p.year;var m=this._p.month;var d=this._p.day+((this._p.second/60+this._p.minute)/60+this._p.hour)/24;var n=0;var g=false;if(y*372+m*31+Math.floor(d)>=588829){g=true}if(m<=2){m+=12;y--}if(g){n=Math.floor(y/100);n=2-n+Math.floor(n/4)}return Math.floor(365.25*(y+4716))+Math.floor(30.6001*(m+1))+d+n-1524.5},getWeek:function(){return(Math.floor(this.getJulianDay()+0.5)+7000001)%7},getWeekInChinese:function(){return SolarUtil.WEEK[this.getWeek()]},getSolarWeek:function(start){return SolarWeek.fromYmd(this._p.year,this._p.month,this._p.day,start)},isLeapYear:function(){return SolarUtil.isLeapYear(this._p.year)},getFestivals:function(){var f=SolarUtil.FESTIVAL[this._p.month+'-'+this._p.day];if(!f){f=[]}var weeks=Math.ceil(this._p.day/7);var week=this.getWeek();f=SolarUtil.WEEK_FESTIVAL[this._p.month+'-'+weeks+'-'+week];if(f){return[f]}if(this._p.day+7>SolarUtil.getDaysOfMonth(this._p.year,this._p.month)){f=SolarUtil.WEEK_FESTIVAL[this._p.month+'-0-'+week];if(f){return[f]}}return[]},getOtherFestivals:function(){var fs=SolarUtil.OTHER_FESTIVAL[this._p.month+'-'+this._p.day];return fs?fs:[]},getXingZuo:function(){var index=11;var y=this._p.month*100+this._p.day;if(y>=321&&y<=419){index=0}else if(y>=420&&y<=520){index=1}else if(y>=521&&y<=621){index=2}else if(y>=622&&y<=722){index=3}else if(y>=723&&y<=822){index=4}else if(y>=823&&y<=922){index=5}else if(y>=923&&y<=1023){index=6}else if(y>=1024&&y<=1122){index=7}else if(y>=1123&&y<=1221){index=8}else if(y>=1222||y<=119){index=9}else if(y>=120&&y<=218){index=10}return SolarUtil.XINGZUO[index]},toYmd:function(){var m=this._p.month;var d=this._p.day;var y=''+this._p.year;while(y.length<4){y='0'+y}return y+'-'+(m<10?'0':'')+m+'-'+(d<10?'0':'')+d},toYmdHms:function(){return this.toYmd()+' '+this.toHms()},toHms:function(){return(this._p.hour<10?'0':'')+this._p.hour+':'+(this._p.minute<10?'0':'')+this._p.minute+':'+(this._p.second<10?'0':'')+this._p.second},toString:function(){return this.toYmd()},toFullString:function(){var s=this.toYmdHms();if(this.isLeapYear()){s+=' 闰年'}s+=' 星期'+this.getWeekInChinese();var festivals=this.getFestivals();for(var i=0,j=festivals.length;i<j;i++){s+=' ('+festivals[i]+')'}s+=' '+this.getXingZuo()+'座';return s},next:function(days,onlyWorkday){var date=new Date(this._p.year+'/'+this._p.month+'/'+this._p.day);if(!onlyWorkday){date.setDate(date.getDate()+days);return _fromDate(date)}if(days!==0){var rest=Math.abs(days);var add=days<0?-1:1;while(rest>0){date.setDate(date.getDate()+add);var apiWork=!HolidayUtil.getHoliday(date.getFullYear(),date.getMonth()+1,date.getDate());var work=SolarUtil.WEEK[date.getDay()].indexOf('六')<0&&SolarUtil.WEEK[date.getDay()].indexOf('日')<0;if(apiWork&&work){rest--}}return _fromDate(date)}},getLunar:function(){return Lunar.fromSolar(this)}}};return{fromDate:function(date){return _fromDate(date)},fromJulianDay:function(julianDay){return _fromJulianDay(julianDay)},fromYmd:function(y,m,d){return _fromYmdHms(y,m,d,0,0,0)},fromYmdHms:function(y,m,d,hour,minute,second){return _fromYmdHms(y,m,d,hour,minute,second)},fromBaZi:function(yearGanZhi,monthGanZhi,dayGanZhi,timeGanZhi,sect,baseYear){sect=sect||2;baseYear=baseYear||1900;var l=[];var m=LunarUtil.index(monthGanZhi.substring(1),LunarUtil.ZHI,-1)-2;if(m<0){m+=12}if(((LunarUtil.index(yearGanZhi.substring(0,1),LunarUtil.GAN,-1)+1)*2+m)%10!==LunarUtil.index(monthGanZhi.substring(0,1),LunarUtil.GAN,-1)){return l}var y=LunarUtil.getJiaZiIndex(yearGanZhi)-57;if(y<0){y+=60}while(y<baseYear){y+=60}var h=LunarUtil.index(timeGanZhi.substring(1),LunarUtil.ZHI,-1)*2;for(var i=0;i<100;i++){var solar=null;var solarTime=null;while(y<=baseYear+100){try{var jieQiLunar=Lunar.fromYmd(y,1,1);var jieQiList=jieQiLunar.getJieQiList();var jieQiTable=jieQiLunar.getJieQiTable();for(var jq=0;jq<jieQiList.length;jq++){var key=jieQiList[jq];var d=LunarUtil.getJiaZiIndex(dayGanZhi)-LunarUtil.getJiaZiIndex(solarTime.getLunar().getDayInGanZhiExact2());if(d<0){d+=60}if(d>0){solarTime=Solar.fromJulianDay(solarTime.getJulianDay()+d)}if(h===24){if(2===sect){solarTime=Solar.fromJulianDay(solarTime.getJulianDay()+1)}else{h=0}}var mi=0;var s=0;for(mi=0;mi<60;mi++){for(s=0;s<60;s++){var solar=Solar.fromYmdHms(solarTime.getYear(),solarTime.getMonth(),solarTime.getDay(),h,mi,s);var lunar=solar.getLunar();var dgz=(2===sect)?lunar.getDayInGanZhiExact2():lunar.getDayInGanZhiExact();if(lunar.getYearInGanZhiExact()===yearGanZhi&&lunar.getMonthInGanZhiExact()===monthGanZhi&&dgz===dayGanZhi&&lunar.getTimeInGanZhi()===timeGanZhi){l.push(solar);break}}if(solar){break}}if(solar){break}}}catch(e){}y+=60}if(!solar){break}}return l}}})();
-// ... 由於篇幅限制，這裡僅展示結構框架，完整的 lunar-javascript 庫將保留 ...
-</script>
-
-<!-- ============================================================================
-     完整的 lunar-javascript 庫
-     ============================================================================ -->
-<script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.7.7/lunar.min.js"></script>
-
-<!-- ============================================================================
-     奇門遁甲核心計算模組
-     ============================================================================ -->
-<script>
-/**
- * 奇門遁甲計算核心
- *
- * 此模組包含所有排盤所需的常數與運算函數
- * 與 Node.js 模組保持邏輯一致
- */
-const QimenCore = (function() {
-    'use strict';
-
-    // ========== 常數定義 ==========
-
-    const PALACE = Object.freeze({
-        XUN: 0, LI: 1, KUN: 2, ZHEN: 3, ZHONG: 4, DUI: 5, GEN: 6, KAN: 7, QIAN: 8
-    });
-
-    const ZHONG_SUBSTITUTE = PALACE.KUN;
-
-    const FLY_PATH = Object.freeze({
-        CLOCKWISE: [0, 1, 2, 5, 8, 7, 6, 3],
-        COUNTER_CLOCKWISE: [0, 3, 6, 7, 8, 5, 2, 1],
-        DOOR_YANG: [7, 2, 3, 0, 4, 8, 5, 6, 1],
-        DOOR_YIN: [7, 1, 6, 5, 8, 4, 0, 3, 2]
-    });
-
-    const DIRECTION_ARROWS = Object.freeze(['↘', '↓', '↙', '→', '', '←', '↗', '↑', '↖']);
-    const LUOSHU_BAGUA = Object.freeze(['巽', '離', '坤', '震', '中', '兌', '艮', '坎', '乾']);
-    const DIRECTIONS = Object.freeze(['東南', '南', '西南', '東', '中', '西', '東北', '北', '西北']);
-
-    const QIMEN_STARS = Object.freeze(['天輔', '天英', '天芮', '天沖', '天禽', '天柱', '天任', '天蓬', '天心']);
-    const EIGHT_DOORS_ORIGINAL = Object.freeze(['杜門', '景門', '死門', '傷門', '', '驚門', '生門', '休門', '開門']);
-    const EIGHT_DOORS_SEQUENCE = Object.freeze(['休門', '生門', '傷門', '杜門', '景門', '死門', '驚門', '開門']);
-    const EIGHT_GODS_YANG = Object.freeze(['值符', '滕蛇', '太陰', '六合', '勾陳', '朱雀', '九地', '九天']);
-    const EIGHT_GODS_YIN = Object.freeze(['值符', '滕蛇', '太陰', '六合', '白虎', '玄武', '九地', '九天']);
-
-    const XUN_HEADS = Object.freeze(['甲子', '甲戌', '甲申', '甲午', '甲辰', '甲寅']);
-
-    const SIX_XUNS = Object.freeze({
-        '甲子': ['甲子', '乙丑', '丙寅', '丁卯', '戊辰', '己巳', '庚午', '辛未', '壬申', '癸酉'],
-        '甲戌': ['甲戌', '乙亥', '丙子', '丁丑', '戊寅', '己卯', '庚辰', '辛巳', '壬午', '癸未'],
-        '甲申': ['甲申', '乙酉', '丙戌', '丁亥', '戊子', '己丑', '庚寅', '辛卯', '壬辰', '癸巳'],
-        '甲午': ['甲午', '乙未', '丙申', '丁酉', '戊戌', '己亥', '庚子', '辛丑', '壬寅', '癸卯'],
-        '甲辰': ['甲辰', '乙巳', '丙午', '丁未', '戊申', '己酉', '庚戌', '辛亥', '壬子', '癸丑'],
-        '甲寅': ['甲寅', '乙卯', '丙辰', '丁巳', '戊午', '己未', '庚申', '辛酉', '壬戌', '癸亥']
-    });
-
-    const XUN_TO_HEAD = Object.freeze({
-        '甲子': '戊', '甲戌': '己', '甲申': '庚', '甲午': '辛', '甲辰': '壬', '甲寅': '癸'
-    });
-
-    const XUN_TO_KONGWANG = Object.freeze({
-        '甲子': ['西北'], '甲戌': ['西南西', '西'], '甲申': ['南', '南南西'],
-        '甲午': ['東南'], '甲辰': ['東北東', '東'], '甲寅': ['北', '北北東']
-    });
-
-    const DIPAN_YANG = Object.freeze({
-        1: ['辛','乙','己','庚','壬','丁','丙','戊','癸'], 2: ['庚','丙','戊','己','辛','癸','丁','乙','壬'],
-        3: ['己','丁','乙','戊','庚','壬','癸','丙','辛'], 4: ['戊','癸','丙','乙','己','辛','壬','丁','庚'],
-        5: ['乙','壬','丁','丙','戊','庚','辛','癸','己'], 6: ['丙','辛','癸','丁','乙','己','庚','壬','戊'],
-        7: ['丁','庚','壬','癸','丙','戊','己','辛','乙'], 8: ['癸','己','辛','壬','丁','乙','戊','庚','丙'],
-        9: ['壬','戊','庚','辛','癸','丙','乙','己','丁']
-    });
-
-    const DIPAN_YIN = Object.freeze({
-        1: ['丁','己','乙','丙','癸','辛','庚','戊','壬'], 2: ['丙','庚','戊','乙','丁','壬','辛','己','癸'],
-        3: ['乙','辛','己','戊','丙','癸','壬','庚','丁'], 4: ['戊','壬','庚','己','乙','丁','癸','辛','丙'],
-        5: ['己','癸','辛','庚','戊','丙','丁','壬','乙'], 6: ['庚','丁','壬','辛','己','乙','丙','癸','戊'],
-        7: ['辛','丙','癸','壬','庚','戊','乙','丁','己'], 8: ['壬','乙','丁','癸','辛','己','戊','丙','庚'],
-        9: ['癸','戊','丙','丁','壬','庚','己','乙','辛']
-    });
-
-    // 節氣局數配置（拆補法）
-    const JIEQI_JUSHU = Object.freeze({
-        '冬至': [1, 7, 4], '小寒': [2, 8, 5], '大寒': [3, 9, 6],
-        '立春': [8, 5, 2], '雨水': [9, 6, 3], '驚蟄': [1, 7, 4],
-        '春分': [3, 9, 6], '清明': [4, 1, 7], '穀雨': [5, 2, 8],
-        '立夏': [4, 1, 7], '小滿': [5, 2, 8], '芒種': [6, 3, 9],
-        '夏至': [9, 3, 6], '小暑': [8, 2, 5], '大暑': [7, 1, 4],
-        '立秋': [2, 5, 8], '處暑': [1, 4, 7], '白露': [9, 3, 6],
-        '秋分': [7, 1, 4], '寒露': [6, 9, 3], '霜降': [5, 8, 2],
-        '立冬': [6, 9, 3], '小雪': [5, 8, 2], '大雪': [4, 7, 1]
-    });
-
-    const YUAN_NAMES = Object.freeze(['上元', '中元', '下元']);
-
-    // ========== 工具函數 ==========
-
-    function rotateArrayFromIndex(array, startIndex) {
-        if (!Array.isArray(array) || array.length === 0) return [];
-        const idx = startIndex % array.length;
-        return [...array.slice(idx), ...array.slice(0, idx)];
-    }
-
-    function generatePutSequence(flyPath, startPalaceIndex) {
-        const pathIndex = flyPath.indexOf(startPalaceIndex);
-        if (pathIndex === -1) {
-            const substituteIndex = flyPath.indexOf(ZHONG_SUBSTITUTE);
-            return rotateArrayFromIndex(flyPath, substituteIndex);
-        }
-        return rotateArrayFromIndex(flyPath, pathIndex);
-    }
-
-    function rotateMapping(sourceArray, flyPath, sourceStartIndex, targetStartIndex) {
-        const normalizedSourceStart = sourceStartIndex === PALACE.ZHONG ? ZHONG_SUBSTITUTE : sourceStartIndex;
-        const normalizedTargetStart = targetStartIndex === PALACE.ZHONG ? ZHONG_SUBSTITUTE : targetStartIndex;
-        const getSequence = generatePutSequence(flyPath, normalizedSourceStart);
-        const putSequence = generatePutSequence(flyPath, normalizedTargetStart);
-        const result = new Array(9).fill('');
-        for (let i = 0; i < getSequence.length; i++) {
-            result[putSequence[i]] = sourceArray[getSequence[i]];
-        }
-        result[PALACE.ZHONG] = sourceArray[PALACE.ZHONG];
-        return result;
-    }
-
-    function normalizeZhongPalace(index) {
-        return index === PALACE.ZHONG ? ZHONG_SUBSTITUTE : index;
-    }
-
-    function getXunHead(ganzhi) {
-        for (const xunHead of XUN_HEADS) {
-            if (SIX_XUNS[xunHead].includes(ganzhi)) return xunHead;
-        }
-        return null;
-    }
-
-    function getFuShou(xunHead) { return XUN_TO_HEAD[xunHead]; }
-
-    function calculateFlyStep(xunHead, currentTime) {
-        const xunArray = SIX_XUNS[xunHead];
-        return xunArray ? xunArray.indexOf(currentTime) : 0;
-    }
-
-    function getKongWangDirection(ganzhi) {
-        const xunHead = getXunHead(ganzhi);
-        return xunHead ? XUN_TO_KONGWANG[xunHead] : undefined;
-    }
-
-    function resolveJiaHiding(tianGan, fuShou) {
-        return tianGan === '甲' ? fuShou : tianGan;
-    }
-
-    function extractTianGan(ganzhi) { return ganzhi.substring(0, 1); }
-
-    // ========== 盤面計算 ==========
-
-    function getDiPan(isYang, gameNumber) {
-        const config = isYang ? DIPAN_YANG : DIPAN_YIN;
-        return [...config[gameNumber]];
-    }
-
-    function calculateTianPan(isYang, tianGan, fuShou, diPan) {
-        const targetIndex = diPan.indexOf(tianGan);
-        const sourceIndex = diPan.indexOf(fuShou);
-        return rotateMapping(diPan, FLY_PATH.CLOCKWISE, sourceIndex, targetIndex);
-    }
-
-    function getZhiShiDoor(fuShou, diPan) {
-        let doorIndex = diPan.indexOf(fuShou);
-        doorIndex = normalizeZhongPalace(doorIndex);
-        return EIGHT_DOORS_ORIGINAL[doorIndex];
-    }
-
-    function calculateEightDoors(isYang, zhiShiDoor, flyStep, fuShou, diPan) {
-        const startIndex = diPan.indexOf(fuShou);
-        const flyIndex = isYang ? FLY_PATH.DOOR_YANG : FLY_PATH.DOOR_YIN;
-        const normalizedFlyStep = flyStep % flyIndex.length;
-        const putSequence = generatePutSequence(flyIndex, startIndex);
-        let zhiShiTargetIndex = putSequence[normalizedFlyStep];
-        zhiShiTargetIndex = normalizeZhongPalace(zhiShiTargetIndex);
-        const doorPutSequence = generatePutSequence(FLY_PATH.CLOCKWISE, zhiShiTargetIndex);
-        const zhiShiIndexInSequence = EIGHT_DOORS_SEQUENCE.indexOf(zhiShiDoor);
-        const doorOrder = rotateArrayFromIndex(EIGHT_DOORS_SEQUENCE, zhiShiIndexInSequence);
-        const result = new Array(9).fill('');
-        for (let i = 0; i < doorPutSequence.length; i++) {
-            result[doorPutSequence[i]] = doorOrder[i];
-        }
-        return result;
-    }
-
-    function getZhiFuStar(fuShou, diPan) {
-        const starIndex = diPan.indexOf(fuShou);
-        return QIMEN_STARS[starIndex];
-    }
-
-    function getZhiFuPosition(tianGan, diPan) {
-        const positionIndex = diPan.indexOf(tianGan);
-        return LUOSHU_BAGUA[positionIndex];
-    }
-
-    function calculateNineStars(zhiFuStar, tianGan, diPan) {
-        const targetIndex = diPan.indexOf(tianGan);
-        const sourceIndex = QIMEN_STARS.indexOf(zhiFuStar);
-        return rotateMapping(QIMEN_STARS, FLY_PATH.CLOCKWISE, sourceIndex, targetIndex);
-    }
-
-    function getTianQinDirection(nineStars) {
-        const tianRuiIndex = nineStars.indexOf('天芮');
-        return DIRECTION_ARROWS[tianRuiIndex];
-    }
-
-    function calculateEightGods(isYang, tianGan, diPan) {
-        let headIndex = diPan.indexOf(tianGan);
-        headIndex = normalizeZhongPalace(headIndex);
-        const gods = isYang ? EIGHT_GODS_YANG : EIGHT_GODS_YIN;
-        const flyPath = isYang ? FLY_PATH.CLOCKWISE : FLY_PATH.COUNTER_CLOCKWISE;
-        const putSequence = generatePutSequence(flyPath, headIndex);
-        const result = new Array(9).fill('');
-        for (let i = 0; i < putSequence.length; i++) {
-            result[putSequence[i]] = gods[i];
-        }
-        return result;
-    }
-
-    function getZhiShiPosition(zhiShiDoor, eightDoors) {
-        const doorIndex = eightDoors.indexOf(zhiShiDoor);
-        return LUOSHU_BAGUA[doorIndex];
-    }
-
-    // ========== 拆補法定局 ==========
-
-    function calculateJuByChaiBu(solar) {
-        const lunar = solar.getLunar();
-        const jieQiTable = lunar.getJieQiTable();
-        const jieQiList = Object.keys(jieQiTable).filter(k => JIEQI_JUSHU[k]);
-
-        // 找當前所在節氣
-        let currentJieQi = null;
-        let currentJieQiSolar = null;
-
-        for (let i = jieQiList.length - 1; i >= 0; i--) {
-            const jqName = jieQiList[i];
-            const jqSolar = jieQiTable[jqName];
-            if (jqSolar && !solar.isBefore(jqSolar)) {
-                currentJieQi = jqName;
-                currentJieQiSolar = jqSolar;
-                break;
-            }
-        }
-
-        if (!currentJieQi) {
-            // 回溯上一年
-            const prevYearLunar = Lunar.fromYmd(lunar.getYear() - 1, 12, 1);
-            const prevJieQiTable = prevYearLunar.getJieQiTable();
-            const prevJieQiList = Object.keys(prevJieQiTable).filter(k => JIEQI_JUSHU[k]);
-            for (let i = prevJieQiList.length - 1; i >= 0; i--) {
-                const jqName = prevJieQiList[i];
-                const jqSolar = prevJieQiTable[jqName];
-                if (jqSolar && !solar.isBefore(jqSolar)) {
-                    currentJieQi = jqName;
-                    currentJieQiSolar = jqSolar;
-                    break;
-                }
-            }
-        }
-
-        if (!currentJieQi || !currentJieQiSolar) {
-            throw new Error('無法確定當前節氣');
-        }
-
-        // 計算節後天數
-        const daysSinceJieQi = solar.subtract(currentJieQiSolar);
-
-        // 確定三元（上元0-4天，中元5-9天，下元10-14天）
-        const yuanIndex = Math.min(Math.floor(daysSinceJieQi / 5), 2);
-
-        // 獲取局數
-        const jushu = JIEQI_JUSHU[currentJieQi];
-        const gameNumber = jushu[yuanIndex];
-
-        // 判斷陰陽遁
-        const yangJieQi = ['冬至', '小寒', '大寒', '立春', '雨水', '驚蟄', '春分', '清明', '穀雨', '立夏', '小滿', '芒種'];
-        const yinYang = yangJieQi.includes(currentJieQi) ? '陽' : '陰';
-
-        return {
-            jieQiName: currentJieQi,
-            yuanName: YUAN_NAMES[yuanIndex],
-            daysSinceJieQi,
-            gameNumber,
-            yinYang
-        };
-    }
-
-    // ========== 主函數 ==========
-
-    function generateChart(data) {
-        const [yearPillar, monthPillar, dayPillar, timePillar, gameNumber, yinYangStr] = data;
-        const isYang = yinYangStr === '陽';
-        const timeGan = extractTianGan(timePillar);
-        const xunHead = getXunHead(timePillar);
-        const fuShou = getFuShou(xunHead);
-        const effectiveTimeGan = resolveJiaHiding(timeGan, fuShou);
-
-        const diPan = getDiPan(isYang, gameNumber);
-        const tianPan = calculateTianPan(isYang, effectiveTimeGan, fuShou, diPan);
-
-        const zhiShiDoor = getZhiShiDoor(fuShou, diPan);
-        const flyStep = calculateFlyStep(xunHead, timePillar);
-        const eightDoors = calculateEightDoors(isYang, zhiShiDoor, flyStep, fuShou, diPan);
-        const zhiShiPosition = getZhiShiPosition(zhiShiDoor, eightDoors);
-
-        const zhiFuStar = getZhiFuStar(fuShou, diPan);
-        const zhiFuPosition = getZhiFuPosition(effectiveTimeGan, diPan);
-        const nineStars = calculateNineStars(zhiFuStar, effectiveTimeGan, diPan);
-        const tianQinDirection = getTianQinDirection(nineStars);
-
-        const eightGods = calculateEightGods(isYang, effectiveTimeGan, diPan);
-
-        return {
-            // 四柱
-            年柱: yearPillar,
-            月柱: monthPillar,
-            日柱: dayPillar,
-            時柱: timePillar,
-            時干: timeGan,
-
-            // 局數資訊
-            陰陽: yinYangStr,
-            局數: gameNumber,
-
-            // 時間樞紐
-            旬首: xunHead,
-            符首: fuShou,
-            值符: zhiFuStar,
-            值符落宮: zhiFuPosition,
-            值使: zhiShiDoor,
-            值使落宮: zhiShiPosition,
-            飛步: flyStep,
-            天禽寄宮: tianQinDirection,
-
-            // 四柱空亡
-            年空亡: getKongWangDirection(yearPillar),
-            月空亡: getKongWangDirection(monthPillar),
-            日空亡: getKongWangDirection(dayPillar),
-            時空亡: getKongWangDirection(timePillar),
-
-            // 五層盤面
-            地盤: diPan,
-            天盤: tianPan,
-            八門: eightDoors,
-            九星: nineStars,
-            八神: eightGods,
-
-            // 輔助
-            方位: LUOSHU_BAGUA,
-            方向: DIRECTIONS
-        };
-    }
-
-    // ========== 公開 API ==========
-
-    return {
-        generateChart,
-        calculateJuByChaiBu,
-        DIRECTIONS,
-        LUOSHU_BAGUA
-    };
-
-})();
-</script>
+<script src="dist/qimen.standalone.min.js"></script>
 
 <!-- ============================================================================
      應用程式邏輯
@@ -742,9 +375,24 @@ const QimenCore = (function() {
 <script>
 /**
  * 應用程式主模組
+ *
+ * 所有排盤運算一律委由 Qimen（dist/qimen.standalone.min.js）處理，
+ * 本模組只負責輸入解析與畫面渲染，不重複實作任何曆法或奇門邏輯。
  */
 const App = (function() {
     'use strict';
+
+    /**
+     * 時辰索引 → 該時辰的代表小時（24 小時制）
+     *
+     * 子時橫跨午夜（23:00–01:00），故拆為早子時與晚子時兩個選項：
+     * 早子時＝當日 00:00、晚子時＝當日 23:00。
+     * 兩者的日柱與時柱都不同，合併為單一「子時」必然有一半情況是錯的。
+     */
+    const HOUR_MAP = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 23];
+
+    /** JSON 輸出時略去的純常數欄位（與所問時刻無關） */
+    const CONSTANT_FIELDS = ['河圖', '方位'];
 
     // ========== DOM 操作 ==========
 
@@ -764,45 +412,46 @@ const App = (function() {
     // ========== 渲染函數 ==========
 
     function renderDataGrid(containerId, items) {
-        const html = items.map(item =>
-            `<div class="data-item"><span class="key">${item.key}</span><span class="val">${item.val}</span></div>`
-        ).join('');
-        $(containerId).innerHTML = html;
+        $(containerId).innerHTML = items.map(function(item) {
+            return '<div class="data-item"><span class="key">' + item.key +
+                   '</span><span class="val">' + item.val + '</span></div>';
+        }).join('');
     }
 
-    function renderPalaceGrid(containerId, data, showDirection = true) {
-        const directions = QimenCore.DIRECTIONS;
-        const html = data.map((content, i) => {
+    function renderPalaceGrid(containerId, data, showDirection) {
+        if (showDirection === undefined) showDirection = true;
+        const directions = Qimen.DIRECTIONS;
+        $(containerId).innerHTML = data.map(function(content, i) {
             const isCenter = i === 4;
-            return `<div class="palace-cell ${isCenter ? 'center' : ''}">
-                ${showDirection ? `<div class="direction">${directions[i]}</div>` : ''}
-                <div class="content">${content || '—'}</div>
-            </div>`;
+            return '<div class="palace-cell ' + (isCenter ? 'center' : '') + '">' +
+                   (showDirection ? '<div class="direction">' + directions[i] + '</div>' : '') +
+                   '<div class="content">' + (content || '—') + '</div>' +
+                   '</div>';
         }).join('');
-        $(containerId).innerHTML = html;
     }
 
     function renderCombinedGrid(containerId, chart) {
-        const directions = QimenCore.DIRECTIONS;
-        const bagua = QimenCore.LUOSHU_BAGUA;
+        const directions = Qimen.DIRECTIONS;
+        const bagua = Qimen.LUOSHU_BAGUA;
 
-        const html = Array.from({length: 9}, (_, i) => {
+        $(containerId).innerHTML = Array.from({ length: 9 }, function(_, i) {
             const isCenter = i === 4;
-            return `<div class="palace-cell ${isCenter ? 'center' : ''}">
-                <div class="direction">${directions[i]} ${bagua[i]}</div>
-                <div class="layer god">${chart.八神[i] || '—'}</div>
-                <div class="layer star">${chart.九星[i] || '—'}</div>
-                <div class="layer door">${chart.八門[i] || '—'}</div>
-                <div class="layer tian">${chart.天盤[i] || '—'}</div>
-                <div class="layer di">${chart.地盤[i] || '—'}</div>
-            </div>`;
+            return '<div class="palace-cell ' + (isCenter ? 'center' : '') + '">' +
+                   '<div class="direction">' + directions[i] + ' ' + bagua[i] + '</div>' +
+                   '<div class="layer god">' + (chart.八神[i] || '—') + '</div>' +
+                   '<div class="layer star">' + (chart.九星[i] || '—') + '</div>' +
+                   '<div class="layer door">' + (chart.天門[i] || '—') + '</div>' +
+                   '<div class="layer tian">' + (chart.天盤[i] || '—') + '</div>' +
+                   '<div class="layer di">' + (chart.地盤[i] || '—') + '</div>' +
+                   '</div>';
         }).join('');
-
-        $(containerId).innerHTML = html;
     }
 
-    function renderChart(chart, juInfo) {
-        // 基本資訊
+    function formatList(value) {
+        return (value && value.length) ? value.join('、') : '—';
+    }
+
+    function renderChart(chart) {
         renderDataGrid('infoBasic', [
             { key: '年柱', val: chart.年柱 },
             { key: '月柱', val: chart.月柱 },
@@ -813,15 +462,13 @@ const App = (function() {
             { key: '局數', val: chart.局數 + '局' }
         ]);
 
-        // 定局資訊
         renderDataGrid('infoJu', [
-            { key: '節氣', val: juInfo.jieQiName },
-            { key: '三元', val: juInfo.yuanName },
-            { key: '節後天數', val: juInfo.daysSinceJieQi + '天' },
-            { key: '定局', val: `${juInfo.yinYang}遁${juInfo.gameNumber}局` }
+            { key: '節氣', val: chart.節氣 },
+            { key: '三元', val: chart.三元 },
+            { key: '節後天數', val: chart.節後天數 + '天' },
+            { key: '定局', val: chart.陰陽 + '遁' + chart.局數 + '局' }
         ]);
 
-        // 時間樞紐
         renderDataGrid('infoHub', [
             { key: '旬首', val: chart.旬首 },
             { key: '符首', val: chart.符首 },
@@ -833,73 +480,52 @@ const App = (function() {
             { key: '天禽寄宮', val: chart.天禽寄宮 }
         ]);
 
-        // 四柱空亡
+        // 函式庫的欄位名為「孤虛」，顯示標籤沿用一般習慣稱呼「空亡」
         renderDataGrid('infoKong', [
-            { key: '年空亡', val: chart.年空亡?.join('、') || '—' },
-            { key: '月空亡', val: chart.月空亡?.join('、') || '—' },
-            { key: '日空亡', val: chart.日空亡?.join('、') || '—' },
-            { key: '時空亡', val: chart.時空亡?.join('、') || '—' }
+            { key: '年空亡', val: formatList(chart.年孤虛) },
+            { key: '月空亡', val: formatList(chart.月孤虛) },
+            { key: '日空亡', val: formatList(chart.日孤虛) },
+            { key: '時空亡', val: formatList(chart.時孤虛) }
         ]);
 
-        // 綜合盤局
         renderCombinedGrid('gridCombined', chart);
 
-        // 分層盤面
         renderPalaceGrid('gridDi', chart.地盤);
         renderPalaceGrid('gridTian', chart.天盤);
-        renderPalaceGrid('gridDoor', chart.八門);
+        renderPalaceGrid('gridDoor', chart.天門);
         renderPalaceGrid('gridStar', chart.九星);
         renderPalaceGrid('gridGod', chart.八神);
 
-        // JSON 輸出
-        const output = { ...chart, 定局資訊: juInfo };
-        delete output.方位;
-        delete output.方向;
+        const output = Object.assign({}, chart);
+        CONSTANT_FIELDS.forEach(function(field) { delete output[field]; });
         $('jsonOutput').textContent = JSON.stringify(output, null, 2);
 
-        // 顯示結果
         $('result').classList.add('show');
     }
 
     // ========== 核心功能 ==========
+
+    function pad2(n) { return String(n).padStart(2, '0'); }
 
     function generate() {
         hideError();
 
         try {
             const dateStr = $('inputDate').value;
-            const hourIndex = parseInt($('inputHour').value);
+            const hourIndex = parseInt($('inputHour').value, 10);
 
             if (!dateStr) {
                 throw new Error('請選擇日期');
             }
 
-            // 解析日期
-            const [year, month, day] = dateStr.split('-').map(Number);
+            const parts = dateStr.split('-').map(Number);
+            const datetime = String(parts[0]).padStart(4, '0') +
+                             pad2(parts[1]) + pad2(parts[2]) + pad2(HOUR_MAP[hourIndex]);
 
-            // 時辰轉小時（取時辰中間點）
-            const hourMap = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
-            const hour = hourMap[hourIndex];
+            // 四柱、拆補法定局、五層盤面全部由函式庫一次完成
+            const chart = Qimen.chartToObject(Qimen.generateChartByDatetime(datetime));
 
-            // 建立 Solar 物件
-            const solar = Solar.fromYmdHms(year, month, day, hour, 0, 0);
-            const lunar = solar.getLunar();
-
-            // 拆補法定局
-            const juInfo = QimenCore.calculateJuByChaiBu(solar);
-
-            // 獲取四柱
-            const yearPillar = lunar.getYearInGanZhiExact();
-            const monthPillar = lunar.getMonthInGanZhiExact();
-            const dayPillar = lunar.getDayInGanZhiExact();
-            const timePillar = lunar.getTimeInGanZhi();
-
-            // 生成盤局
-            const data = [yearPillar, monthPillar, dayPillar, timePillar, juInfo.gameNumber, juInfo.yinYang];
-            const chart = QimenCore.generateChart(data);
-
-            // 渲染結果
-            renderChart(chart, juInfo);
+            renderChart(chart);
 
         } catch (error) {
             showError('錯誤：' + error.message);
@@ -909,41 +535,37 @@ const App = (function() {
 
     function setNow() {
         const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
 
-        $('inputDate').value = `${year}-${month}-${day}`;
+        $('inputDate').value = now.getFullYear() + '-' +
+                               pad2(now.getMonth() + 1) + '-' + pad2(now.getDate());
 
-        // 計算時辰
         const hour = now.getHours();
         let shichen;
-        if (hour >= 23 || hour < 1) shichen = 0;
-        else shichen = Math.floor((hour + 1) / 2);
+        if (hour >= 23) {
+            shichen = 12;                          // 晚子時（當日 23 時）
+        } else if (hour < 1) {
+            shichen = 0;                           // 早子時（當日 00 時）
+        } else {
+            shichen = Math.floor((hour + 1) / 2);
+        }
 
         $('inputHour').value = shichen;
 
-        // 自動起盤
         generate();
     }
 
     // ========== 初始化 ==========
 
     function init() {
-        // 檢查 lunar-javascript 是否載入
-        if (typeof Solar === 'undefined') {
-            showError('曆法庫載入失敗，請重新整理頁面');
+        if (typeof Qimen === 'undefined') {
+            showError('排盤引擎載入失敗：找不到 dist/qimen.standalone.min.js，請先執行 npm run build:standalone');
             return;
         }
 
-        // 設定當前時間並起盤
         setNow();
     }
 
-    // DOM 載入完成後初始化
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(init, 100);
-    });
+    document.addEventListener('DOMContentLoaded', init);
 
     // ========== 公開 API ==========
 

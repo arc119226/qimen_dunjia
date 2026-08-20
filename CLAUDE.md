@@ -17,13 +17,16 @@ npm test
 node test.js
 ```
 
-Runs the test suite with 21 test cases covering:
-- Yang/Yin bureaus and different game numbers
-- Jia hiding logic
+Runs the test suite (42 assertions, ~0.5s) covering:
+- Five-layer golden values for Yang/Yin bureaus, different game numbers, and Jia hiding
 - `generateChartByDatetime` API (datetime parsing, solar terms, Yuan periods)
-- `generateChartNow` API
-- Input validation
-- Consistency between APIs
+- Full-year sweep: all 366 days of 2024 must chart successfully and cover all 24 solar terms
+- Self-consistency: `值符落宮`/`值使落宮` must match the `九星`/`天門` arrays
+- Input validation (datetime format/calendar validity, four-pillar sexagenary validity)
+- `generateChartNow` API and consistency between the two chart APIs
+
+**Every test must assert.** The pre-2.2.0 suite only checked that no exception was thrown,
+which is why a bug that made ~32 days a year uncharted shipped with "21 tests passing".
 
 ### Building Distribution Files
 ```bash
@@ -105,7 +108,11 @@ The system calculates five layers that stack upon the Luoshu 9-palace grid:
 
 **Zhong Palace (中宮)**: Palace 5 (center) has special handling. When an element should go to center, it's often substituted to palace 2 or 8 depending on context. See `ZHONG_SUBSTITUTE` and `normalizeZhongPalace()`.
 
-**Chai Bu Method (拆補法)**: The system uses the Chai Bu method (not Zhi Run method) for determining game numbers. This calculates days since solar term and divides into three Yuan periods (上元/中元/下元: days 1-5, 6-10, 11-15).
+**Chai Bu Method (拆補法)**: The system uses the Chai Bu method (not Zhi Run method) for determining game numbers. It measures elapsed time from the exact solar-term **transition instant** (via Julian day, fractional) and divides into three Yuan periods: 上元 = [0, 5) days, 中元 = [5, 10) days, 下元 = 10+ days. `節後天數` is 0-based (the solar-term day itself is `0`).
+
+Note this is deliberately instant-based, not calendar-day-based: the Yuan boundary falls at the transition time of day, not at midnight. A calendar-day school would classify days 6 and 11 differently for the hours before that time.
+
+**Solar term names**: lunar-javascript emits **simplified** names; `JIEQI_JUSHU` is keyed by **traditional**. `JIEQI_ALIAS` (constants.js) maps the 5 that differ (惊蛰/谷雨/小满/芒种/处暑). Always match on the **whole name** — substring replacement silently missed 小满 and 芒种 and made a month of the year uncharted.
 
 ### File Responsibilities
 
@@ -145,12 +152,9 @@ The system calculates five layers that stack upon the Luoshu 9-palace grid:
 - Calculating four pillars (year/month/day/hour stems-branches)
 - Finding current solar term and days since term
 
-**test.js**: Validation module with 21 test cases covering:
-- Original `generateQimenChart` functionality
-- `generateChartByDatetime` API with datetime parsing and solar term validation
-- `generateChartNow` API
-- Input validation (format, range checking)
-- API consistency verification
+**test.js**: Assertion-driven test suite (42 tests). Every case compares against expected
+values; the golden values in `chartTestCases` were hand-verified against traditional rules
+and must not be regenerated from program output without re-checking them by hand.
 
 ## Data Flow Example
 

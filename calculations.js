@@ -14,6 +14,7 @@
 import {
     PALACE,
     ZHONG_SUBSTITUTE,
+    JIEQI_ALIAS,
     FLY_PATH,
     DIRECTION_ARROWS,
     HETU_BAGUA,
@@ -109,7 +110,7 @@ export function getDiPan(isYang, gameNumber) {
  * 運算邏輯：以時干位置為放置起點、符首位置為取值起點，
  * 沿順時針軌跡將地盤天干旋轉映射至天盤。
  * 
- * @param {boolean} isYang - 是否為陽局
+ * @param {boolean} isYang - 是否為陽局（未使用，僅為維持既有簽名而保留，見下方說明）
  * @param {string} tianGan - 當前時干（已處理甲遁）
  * @param {string} fuShou - 符首
  * @param {Array<string>} diPan - 地盤配置
@@ -119,8 +120,9 @@ export function calculateTianPan(isYang, tianGan, fuShou, diPan) {
     const targetIndex = diPan.indexOf(tianGan);
     const sourceIndex = diPan.indexOf(fuShou);
     
-    // 陽局與陰局使用相同的順時針軌跡
-    // 原程式碼中陰陽局的天盤運算邏輯相同
+    // 陽局與陰局使用相同的順時針軌跡：轉盤法中天盤是整環剛性旋轉，
+    // 陰陽的差異已經編碼在地盤（DIPAN_YANG / DIPAN_YIN）本身，
+    // 故此處不需要 isYang。參數保留是為了不破壞既有呼叫端簽名。
     return rotateMapping(diPan, FLY_PATH.CLOCKWISE, sourceIndex, targetIndex);
 }
 
@@ -230,16 +232,37 @@ export function getZhiFuStar(fuShou, diPan) {
 }
 
 /**
- * 確定值符星落宮
- * 
- * 計算值符星此刻應落入的宮位名稱
- * 
+ * 查詢時干在地盤上的宮位名稱
+ *
+ * @deprecated 請改用 getZhiFuStarPosition(zhiFuStar, nineStars)。
+ * 本函數回傳的是「時干在地盤的宮位」，但 calculateNineStars 內部經 rotateMapping
+ * 做過中宮正規化（中 → 坤），兩者在時干落中宮時會不一致——會出現「值符落宮＝中，
+ * 但該宮實際的九星並非值符星」這種自相矛盾的輸出。保留匯出僅為相容性。
+ *
  * @param {string} tianGan - 當前時干（已處理甲遁）
  * @param {Array<string>} diPan - 地盤配置
- * @returns {string} 落宮的後天八卦名稱
+ * @returns {string} 時干所在宮位的後天八卦名稱
  */
 export function getZhiFuPosition(tianGan, diPan) {
     const positionIndex = diPan.indexOf(tianGan);
+    return LUOSHU_BAGUA[positionIndex];
+}
+
+/**
+ * 確定值符星落宮
+ *
+ * 直接從九星飛布結果反查值符星的實際位置，保證與九星陣列永遠自洽。
+ * 此作法與 getZhiShiPosition（值使門落宮）對稱。
+ *
+ * 九星飛布結果必含九星各一次，故 indexOf 不會是 -1。
+ * 天禽恆居中宮，當值符為天禽時回傳「中」。
+ *
+ * @param {string} zhiFuStar - 值符星
+ * @param {Array<string>} nineStars - 九星飛布結果
+ * @returns {string} 落宮的後天八卦名稱
+ */
+export function getZhiFuStarPosition(zhiFuStar, nineStars) {
+    const positionIndex = nineStars.indexOf(zhiFuStar);
     return LUOSHU_BAGUA[positionIndex];
 }
 
@@ -320,7 +343,10 @@ export function calculateEightGods(isYang, tianGan, diPan) {
 
 /**
  * 取得方向箭頭
- * 
+ *
+ * 註：本模組內部未使用（天禽寄宮直接查 DIRECTION_ARROWS），
+ * 匯出僅供外部呼叫端使用。
+ *
  * @param {number} palaceIndex - 宮位索引
  * @returns {string} 方向箭頭符號
  */
@@ -345,27 +371,20 @@ export function getZhiShiPosition(zhiShiDoor, eightDoors) {
 // ============================================================================
 
 /**
- * 簡繁轉換表（節氣名稱用）
- * lunar-javascript 輸出簡體，需轉為繁體以匹配常數表
+ * 正規化節氣名稱（簡體 → 繁體）
+ *
+ * lunar-javascript 輸出簡體節氣名，JIEQI_JUSHU 以繁體為 key，需先正規化。
+ *
+ * 此處刻意採「整個名稱查表」而非子字串替換：部分匹配無法在漏掉某個節氣時
+ * 發出任何訊號，先前正是因此漏掉「小满」「芒种」，導致每年約 32 天無法起盤。
+ * 別名表本身定義於 constants.js 的 JIEQI_ALIAS。
+ *
+ * @param {string} name - 節氣名稱（簡體或繁體皆可）
+ * @returns {string} 繁體節氣名稱；未收錄者原樣返回，交由呼叫端拋出明確錯誤
  */
-const SIMPLIFIED_TO_TRADITIONAL = {
-    '谷雨': '穀雨',
-    '惊蛰': '驚蟄',
-    '处暑': '處暑'
-};
-
-/**
- * 簡體轉繁體
- * @param {string} str - 輸入字串
- * @returns {string} 轉換後的繁體字串
- */
-function s2t(str) {
-    if (!str) return str;
-    let result = str;
-    for (const [simplified, traditional] of Object.entries(SIMPLIFIED_TO_TRADITIONAL)) {
-        result = result.replace(new RegExp(simplified, 'g'), traditional);
-    }
-    return result;
+function normalizeJieQiName(name) {
+    if (!name) return name;
+    return JIEQI_ALIAS[name] ?? name;
 }
 
 /**
@@ -398,7 +417,7 @@ export function calculateJuByChaiBu(solar, jieQiJuShu, yuanNames) {
     
     // 獲取當前所在節氣
     const currentJieQi = lunar.getPrevJieQi();
-    const jieQiName = s2t(currentJieQi.getName());
+    const jieQiName = normalizeJieQiName(currentJieQi.getName());
     
     // 獲取節氣交接的精確時間（Solar 對象）
     const jieQiSolar = currentJieQi.getSolar();
@@ -450,6 +469,7 @@ export default {
     getOriginalStars,
     getZhiFuStar,
     getZhiFuPosition,
+    getZhiFuStarPosition,
     calculateNineStars,
     getTianQinDirection,
     calculateEightGods,

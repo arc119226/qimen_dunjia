@@ -4,7 +4,7 @@
  * 統一入口點模組，匯出所有公開 API
  * 
  * @module qimen-dunjia
- * @version 2.0.0
+ * @version 2.2.0
  * @author Refactored with improved maintainability
  * 
  * 系統架構說明：
@@ -37,6 +37,7 @@
 export {
     // 節氣局數配置（拆補法用）
     JIEQI_JUSHU,
+    JIEQI_ALIAS,
     YUAN_NAMES,
     
     // 九宮索引
@@ -46,6 +47,7 @@ export {
     // 飛布軌跡
     FLY_PATH,
     DIRECTION_ARROWS,
+    DIRECTIONS,
     
     // 河圖洛書
     HETU_BAGUA,
@@ -123,6 +125,7 @@ export {
     getOriginalStars,
     getZhiFuStar,
     getZhiFuPosition,
+    getZhiFuStarPosition,
     calculateNineStars,
     getTianQinDirection,
     

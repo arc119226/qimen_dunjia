@@ -1,0 +1,40 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20.x', '22.x']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: 執行測試
+        run: npm test
+
+      - name: 建置打包產物
+        run: |
+          npm run build
+          npm run build:standalone
+
+      - name: 確認 dist/ 與原始碼同步
+        run: |
+          if ! git diff --quiet -- dist/; then
+            echo "::error::dist/ 與原始碼不同步，請執行 npm run build && npm run build:standalone 後重新提交"
+            git diff --stat -- dist/
+            exit 1
+          fi

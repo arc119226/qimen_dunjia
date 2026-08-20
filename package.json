@@ -1,6 +1,6 @@
 {
   "name": "qimen-dunjia",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "奇門遁甲排盤系統 - Qimen Dunjia divination chart generator with Chai Bu method",
   "main": "index.js",
   "type": "module",
