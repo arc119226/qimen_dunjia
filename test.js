@@ -25,6 +25,7 @@ import {
     EARTHLY_BRANCHES,
     ZHI_DIRECTIONS,
     EIGHT_DOORS_ORIGINAL,
+    FLYING_STARS,
     EIGHT_GODS_YANG,
     EIGHT_GODS_YIN,
     DIPAN_YANG,
@@ -34,6 +35,9 @@ import {
     getGuXu,
     getXunKongWang,
     getOppositeZhi,
+    getDiPan,
+    getFuShou,
+    getXunHead,
     FLYING_STAR_CHARTS_YANG,
     FLYING_STAR_CHARTS_YIN,
     calculateFlyingStars
@@ -826,6 +830,98 @@ function runPillarRuleTest() {
     record(`四柱合五鼠遁與五虎遁（${count} 個時刻）`, t.errors);
 }
 
+/**
+ * 《奇門遁甲秘笈大全》（明·劉基，洪武四年）
+ *
+ * 卷首把宮號、五行、飛星色、九星列在同一張表裡：
+ * 「坎，水、一白、天蓬；坤，土、二黑、天芮…離，火、九紫、天英」
+ * 這等於獨立給出了五黃入中的飛星盤就是洛書本身。
+ */
+function runMijiTableTest() {
+    const t = createAsserter();
+    const TABLE = [
+        [1, '天蓬', '一白'], [2, '天芮', '二黑'], [3, '天沖', '三碧'],
+        [4, '天輔', '四綠'], [5, '天禽', '五黃'], [6, '天心', '六白'],
+        [7, '天柱', '七赤'], [8, '天任', '八白'], [9, '天英', '九紫']
+    ];
+    for (const [palace, star, color] of TABLE) {
+        const index = LUOSHU_NUMBERS.indexOf(palace);
+        t.equal(QIMEN_STARS[index], star, palace + '宮之星');
+        t.ok(FLYING_STARS[palace].startsWith(color), palace + ' 應為' + color);
+        t.equal(FLYING_STAR_CHARTS_YANG[5][index], palace, '五黃入中時' + palace + '宮之飛星數');
+    }
+    record('《秘笈大全》宮號／五行／飛星色／九星對照，並印證五黃入中即洛書', t.errors);
+}
+
+/**
+ * 《奇門法竅》〈論伏吟反吟〉
+ *
+ * 「六十時中星伏，惟六時——甲子直符戊辰時、甲戌直符己卯時、甲申直符庚寅時、
+ *   甲午直符辛丑時、甲辰直符壬子時、甲寅直符癸亥時」
+ * 「凡六癸時為門伏，陰陽兩局皆同」
+ *
+ * 法竅所列的六個星伏時，其時干恰為該旬符首；旨歸與景祐所列的六甲時則是
+ * 甲遁符首後落在同一宮。兩者是同一現象的兩半，本專案兩組皆為伏吟。
+ */
+function runFaqiaoFuYinTest() {
+    const t = createAsserter();
+    const build = (shi, ju, yinYang) =>
+        chartToObject(generateQimenChart('fq', ['甲子','甲子','甲子', shi, ju, yinYang]));
+
+    let starCount = 0, doorCount = 0;
+    for (const yinYang of ['陽', '陰']) {
+        for (let ju = 1; ju <= 9; ju++) {
+            // 星伏：法竅所列六時（時干即符首）
+            for (const shi of ['戊辰', '己卯', '庚寅', '辛丑', '壬子', '癸亥']) {
+                const o = build(shi, ju, yinYang);
+                t.deepEqual(o['天盤'], o['地盤'], `${yinYang}${ju}局${shi}時應為星伏`);
+                starCount++;
+            }
+            // 門伏：六癸時，值使繞滿九宮回到符首本宮
+            for (const shi of ['癸酉', '癸未', '癸巳', '癸卯', '癸丑', '癸亥']) {
+                const o = build(shi, ju, yinYang);
+                const diPan = getDiPan(yinYang === '陽', ju);
+                const home = LUOSHU_BAGUA[diPan.indexOf(getFuShou(getXunHead(shi)))];
+                t.equal(o['值使落宮'], home === '中' ? '坤' : home,
+                        `${yinYang}${ju}局${shi}時值使應回符首本宮`);
+                doorCount++;
+            }
+        }
+    }
+    record(`《法竅》星伏六時（${starCount} 例）與六癸時門伏（${doorCount} 例）`, t.errors.slice(0, 5));
+}
+
+/**
+ * 《奇門法竅》〈論孤虛〉
+ *
+ * 「其法，即旬中空亡也，如甲子旬，孤在戌亥，虛在辰巳之類」
+ * 「六甲旬亥酉未巳卯丑為陰虛，戌申午辰寅子為陽孤，
+ *   對而擊其衝，分陽孤擊陽虛，陰孤擊陰虛」
+ *
+ * 注意：法竅以「孤虛」指旬空亡（即本專案的 年旬空 等欄位），
+ * 而統宗〈孤虛〉是逐支推算（本專案的 年孤虛 等欄位）。兩說並存，
+ * 本專案兩者皆提供。
+ */
+function runFaqiaoGuXuTest() {
+    const t = createAsserter();
+    const YANG_ZHI = ['子', '寅', '辰', '午', '申', '戌'];
+
+    for (const [xunHead, kongZhi] of Object.entries(XUN_TO_KONGWANG_ZHI)) {
+        const xk = getXunKongWang(xunHead);
+        t.deepEqual(xk.孤, kongZhi.map(z => ZHI_DIRECTIONS[z]), xunHead + ' 孤即旬空亡之方');
+        t.deepEqual(xk.虛, kongZhi.map(z => ZHI_DIRECTIONS[getOppositeZhi(z)]), xunHead + ' 虛即孤之對沖');
+        // 每旬空亡兩支恰為一陽一陰，且陣列首位為陽支
+        t.ok(YANG_ZHI.includes(kongZhi[0]) && !YANG_ZHI.includes(kongZhi[1]),
+             xunHead + ' 空亡兩支應為一陽一陰且陽支在前，實得 ' + kongZhi.join(''));
+        // 陽孤配陽虛、陰孤配陰虛：孤[i] 與 虛[i] 陰陽須相同
+        kongZhi.forEach((z, i) => {
+            t.ok(YANG_ZHI.includes(z) === YANG_ZHI.includes(getOppositeZhi(z)),
+                 `${xunHead} 第${i + 1}位孤虛陰陽應一致`);
+        });
+    }
+    record('《法竅》孤虛即旬空亡，且陽孤配陽虛、陰孤配陰虛', t.errors);
+}
+
 // ============================================================================
 // 第四部分：輸入驗證
 // ============================================================================
@@ -979,6 +1075,9 @@ function runAllTests() {
     runFuYinTest();
     runZhiguiCaseTest();
     runPillarRuleTest();
+    runMijiTableTest();
+    runFaqiaoFuYinTest();
+    runFaqiaoGuXuTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);
