@@ -23,7 +23,7 @@ import {
     extractTianGan
 } from './utils.js';
 
-import { JIEQI_JUSHU, YUAN_NAMES } from './constants.js';
+import { JIEQI_JUSHU, YUAN_NAMES, TIME_BASIS, CALENDAR_BASIS } from './constants.js';
 
 import {
     calculateJuByFuTou,
@@ -461,6 +461,11 @@ export function generateChartByDatetime(datetime, options = {}) {
     chart.set('節氣', juResult.jieQiName);
     chart.set('三元', juResult.yuanName);
     chart.set('定局法', juResult.定局法 || '拆補');
+
+    // 基準自陳：這張盤的節氣取自哪一種曆、輸入被當成哪一種時。
+    // 兩者都不改動任何一格盤面，但不宣告，使用者就無從得知自己拿到的是什麼。
+    chart.set('時間基準', TIME_BASIS);
+    chart.set('曆法基準', CALENDAR_BASIS);
     if (juResult.定局法 === '符頭') {
         chart.set('符頭', juResult.符頭);
         chart.set('上元符頭', juResult.上元符頭);
@@ -498,7 +503,54 @@ export function generateChartNow(options = {}) {
         now.getDate().toString().padStart(2, '0') +
         now.getHours().toString().padStart(2, '0');
 
-    return generateChartByDatetime(datetime, options);
+    const chart = generateChartByDatetime(datetime, options);
+    chart.set('時鐘來源', describeLocalClock(now));
+    return chart;
+}
+
+/** 盤面基準時區相對 UTC 的分鐘數（東經 120 度標準時） */
+const CHART_UTC_OFFSET_MINUTES = 8 * 60;
+
+/** 格式化為 UTC±HH:MM */
+function formatUtcOffset(minutes) {
+    const sign = minutes < 0 ? '-' : '+';
+    const absolute = Math.abs(minutes);
+    const hours = Math.floor(absolute / 60).toString().padStart(2, '0');
+    const rest = (absolute % 60).toString().padStart(2, '0');
+    return `UTC${sign}${hours}:${rest}`;
+}
+
+/**
+ * 自陳本機時鐘與盤面基準的落差
+ *
+ * generateChartNow 取的是本機牆上時鐘，而節氣交接時刻算在 UTC+8。
+ * 兩者不一致時，等於把本地時間當成北京時間排盤——實測同一物理瞬間，
+ * UTC 與 UTC+8 得到的日柱與時柱皆不同。
+ *
+ * 此處只**陳述**不校正：換算成 UTC+8 等於代使用者選了一派
+ * （多數流派對境外起課用當地時間定時辰），與本專案「異說並列，不代為擇一」
+ * 的原則相違。要指定時區者，請自行換算後改用 generateChartByDatetime。
+ */
+function describeLocalClock(date) {
+    // getTimezoneOffset() 給的是「UTC 減本機」的分鐘數，取負號才是本機相對 UTC 的偏移
+    const localOffsetMinutes = -date.getTimezoneOffset();
+    const differenceHours = (localOffsetMinutes - CHART_UTC_OFFSET_MINUTES) / 60;
+    const consistent = differenceHours === 0;
+
+    return Object.freeze({
+        來源: '本機時鐘',
+        本機時區: formatUtcOffset(localOffsetMinutes),
+        盤面基準: formatUtcOffset(CHART_UTC_OFFSET_MINUTES),
+        與盤面基準時差: differenceHours,
+        一致: consistent,
+        警告: consistent
+            ? null
+            : `本機時區為 ${formatUtcOffset(localOffsetMinutes)}，` +
+              `與盤面基準 ${formatUtcOffset(CHART_UTC_OFFSET_MINUTES)} 相差 ` +
+              `${differenceHours} 小時。本機牆上時刻已被直接當成盤面基準時刻排盤，` +
+              `日柱與時柱可能與該物理瞬間在盤面基準下的干支不符。` +
+              `欲指定時區者，請自行換算後改用 generateChartByDatetime。`
+    });
 }
 
 export default {

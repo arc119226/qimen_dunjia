@@ -38,6 +38,8 @@ export {
     // 節氣局數配置（拆補法用）
     JIEQI_JUSHU,
     JIEQI_ALIAS,
+    TIME_BASIS,
+    CALENDAR_BASIS,
     YUAN_NAMES,
     
     // 九宮索引

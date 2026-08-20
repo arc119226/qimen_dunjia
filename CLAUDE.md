@@ -119,6 +119,30 @@ Verified against 《奇門遁甲統宗》〈以旬首取符使法〉: "甲辰在
 
 **天禽 never moves** in the 九星 array — `rotateMapping` pins it at index 4. It is 寄坤 and travels with 天芮. Therefore `getZhiFuStarPosition()` looks up 天芮 when 值符 is 天禽; reading 天禽's literal array index would report 「中」 and contradict both classics, which require 八神's 值符 to share the palace with the 九星 值符 (統宗〈小值符加大值符法〉, 發凡〈小直符加大直符〉). `天禽寄宮` reports the same palace as an arrow.
 
+**Basis declarations (`TIME_BASIS`, `CALENDAR_BASIS`).** Every auto-generated chart carries
+two fields that state what the chart is measured against. Both **only declare — they change no
+palace value** — and both are externally falsifiable in test.js, deliberately:
+
+- `曆法基準`: 節氣 times are **定氣** (apparent solar longitude, 時憲曆法, adopted 1645), applied
+  to all years. Before 1645 China used **平氣** (mean, 授時曆法); the two differ by up to ~2 days
+  while a 三元 bucket is only 5 days wide, so pre-Ming dates need not match the era's own almanac.
+  This is not a defect — **the classics themselves split**: 《法竅》「如遵時憲書節氣為憑」 vs
+  《演義》「以授時歷看」. Verified by gap dispersion: 定氣 gaps run 14.72–15.73 days, 平氣 would
+  be a constant 15.2184.
+- `時間基準`: input is treated as a **UTC+8 wall clock**. Verified against three astronomical
+  solstice/equinox instants (2024 春分 = 11:06:25 = 03:06 UTC + 8h, to the minute).
+  DST, true solar time, and longitude are **not** corrected.
+
+`generateChartNow()` additionally emits `時鐘來源`, reporting the gap between the local clock and
+the chart basis. **It reads the local wall clock while 節氣 are computed in UTC+8**, so on a
+non-UTC+8 machine the 日柱 and 時柱 can be wrong. It declares rather than converts: converting to
+UTC+8 would pick a school (most schools use local time for 時辰 abroad).
+
+**The tests derive their expectations from the declaration, not from a literal.** Changing
+`時區` to `'UTC+9'` or `節氣` to `'平氣'` turns them red, because the assertion re-derives the
+expected value from whatever the declaration says and compares it against reality. A declaration
+nothing checks is decoration.
+
 **Two 定局法 schools, both shipped.** `generateChartByDatetime(datetime, {定局法})` takes
 `'拆補'` (default) or `'符頭'`. They are not two names for one thing — **92.6% of 2024's
 hours get a different bureau**. 《寶鑒御定》 records the fight verbatim: it calls the

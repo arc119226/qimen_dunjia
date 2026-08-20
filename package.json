@@ -1,7 +1,7 @@
 {
   "name": "qimen-dunjia",
   "version": "2.2.0",
-  "description": "奇門遁甲排盤系統 - Qimen Dunjia divination chart generator with Chai Bu method",
+  "description": "奇門遁甲排盤與格局判斷 - Qimen Dunjia chart generator and pattern analysis (Chai Bu and Fu Tou methods)",
   "main": "index.js",
   "type": "module",
   "exports": {
@@ -21,8 +21,8 @@
   ],
   "scripts": {
     "test": "node test.js",
-    "build": "esbuild index.js --bundle --minify --format=esm --outfile=dist/qimen.min.js --external:lunar-javascript",
-    "build:standalone": "esbuild index.js --bundle --minify --format=iife --global-name=Qimen --outfile=dist/qimen.standalone.min.js",
+    "build": "node build.mjs",
+    "build:standalone": "node build.mjs",
     "prepublishOnly": "npm test && npm run build && npm run build:standalone"
   },
   "keywords": [

@@ -10,6 +10,7 @@
  */
 
 import { readFileSync } from 'fs';
+import { Solar } from 'lunar-javascript';
 import {
     generateQimenChart,
     generateChartByDatetime,
@@ -2059,6 +2060,216 @@ function runJuMethodOptionTests() {
 }
 
 // ============================================================================
+// 基準自陳
+// ============================================================================
+
+/**
+ * 自陳若不能被證偽，就只是裝飾
+ *
+ * 「節氣取定氣」「輸入視為 UTC+8」這兩句話寫在輸出裡，等於對使用者作出承諾。
+ * 若無人驗證它們是否屬實，日後換掉曆法引擎或時區框架時，這兩句話會靜默變成謊言——
+ * 而且是掛在每一張盤上的謊言。故以下兩則測試都以**外部事實**錨定，
+ * 不從被測程式反推：時區以通行天文年曆的至分點時刻驗，
+ * 曆法以節氣間距的離散度驗（平氣等分、定氣不等分）。
+ */
+
+/** 基準自陳欄位的形狀與適用範圍 */
+function runBasisDeclarationTest() {
+    const t = createAsserter();
+
+    const auto = chartToObject(generateChartByDatetime('2024011510'));
+    t.ok(auto['時間基準'] !== undefined, '自動起盤應帶時間基準');
+    t.ok(auto['曆法基準'] !== undefined, '自動起盤應帶曆法基準');
+    // 欄位若整個不見，後續逐項比對會拋 TypeError 而讓整份報告消失——
+    // 崩潰的測試給的資訊比乾淨回報少，故此處先收工再說
+    if (!auto['時間基準'] || !auto['曆法基準']) {
+        record('基準自陳：欄位形狀與適用範圍', t.errors);
+        return;
+    }
+    t.equal(auto['時間基準'].時區, 'UTC+8', '時間基準所宣告的時區');
+    t.equal(auto['時間基準'].時制, '牆上時鐘', '時間基準所宣告的時制');
+    t.equal(auto['時間基準'].夏令時間, '未校正', '夏令時間');
+    t.equal(auto['時間基準'].真太陽時, '未校正', '真太陽時');
+    t.equal(auto['曆法基準'].節氣, '定氣', '曆法基準所宣告的節氣算法');
+    t.ok(Object.isFrozen(auto['時間基準']), '時間基準應凍結');
+    t.ok(Object.isFrozen(auto['曆法基準']), '曆法基準應凍結');
+    t.equal(auto['時鐘來源'], undefined,
+            'generateChartByDatetime 的時刻由呼叫端指定，不應自陳時鐘來源');
+
+    // 「夏令時間：未校正」同樣可證偽。臺灣一九七五年行夏令時間，牆鐘早實際時刻
+    // 一小時；若程式有校正，一九七五年六月十五日十五時的輸入會被移成十四時（未時）
+    // 而非申時。宣告未校正，就必須逐字採用輸入的時刻。
+    if (auto['時間基準'].夏令時間 === '未校正') {
+        const inDst = chartToObject(generateChartByDatetime('1975061515'));
+        t.equal(inDst['時柱'][1], '申',
+                '宣告未校正夏令時間，則 1975-06-15 15 時應直接取申時，不得平移為未時');
+    }
+
+    // 手動起盤不推節氣，故兩項基準皆不適用——不該給出無從成立的承諾
+    const manual = chartToObject(generateQimenChart({
+        年柱: '甲辰', 月柱: '丙寅', 日柱: '戊午', 時柱: '庚申', 局數: 5, 陰陽: '陽'
+    }));
+    t.equal(manual['時間基準'], undefined, '手動起盤不應帶時間基準');
+    t.equal(manual['曆法基準'], undefined, '手動起盤不應帶曆法基準');
+
+    record('基準自陳：欄位形狀與適用範圍', t.errors);
+}
+
+/**
+ * 時間基準宣告 UTC+8——以天文年曆的至分點時刻證實
+ *
+ * 至分點是可獨立查證的天文事實。若排盤引擎所用的時區框架不是 UTC+8，
+ * 這三則的差距會等於時區差（以小時計），絕不可能落在一分鐘之內。
+ */
+const SOLAR_TERM_UTC_ANCHORS = [
+    { 節氣: '春分', 月: 3, utc: '2024-03-20 03:06' },
+    { 節氣: '夏至', 月: 6, utc: '2024-06-20 20:51' },
+    { 節氣: '秋分', 月: 9, utc: '2024-09-22 12:44' }
+];
+
+function runTimeBasisAnchorTest() {
+    const t = createAsserter();
+    const declared = chartToObject(generateChartByDatetime('2024011510'))['時間基準'];
+    t.ok(Boolean(declared), '自動起盤應帶時間基準');
+    if (!declared) { record('時間基準宣告', t.errors); return; }
+
+    // 期望值由**宣告本身**推導，而非寫死八小時。如此改動宣告（例如改成 UTC+9）
+    // 會使期望值一併移動而與引擎不符，測試立刻變紅；寫死則只驗得到引擎，
+    // 驗不到「宣告與現實相符」這件事——而那正是自陳的全部意義。
+    const declaredOffset = /^UTC([+-])(\d{1,2})$/.exec(declared.時區);
+    t.ok(Boolean(declaredOffset), `時間基準的時區格式：${declared.時區}`);
+    if (!declaredOffset) { record('時間基準宣告', t.errors); return; }
+    const offsetHours = Number(declaredOffset[2]) * (declaredOffset[1] === '-' ? -1 : 1);
+
+    const table = new Map();
+    for (const month of [2, 5, 8, 11]) {
+        const lunar = Solar.fromYmdHms(2024, month, 15, 12, 0, 0).getLunar();
+        for (const [name, solar] of Object.entries(lunar.getJieQiTable())) {
+            if (solar.getYear() === 2024) table.set(name, solar);
+        }
+    }
+
+    for (const anchor of SOLAR_TERM_UTC_ANCHORS) {
+        const solar = table.get(anchor.節氣);
+        t.ok(Boolean(solar), `節氣表中應有 ${anchor.節氣}`);
+        if (!solar) continue;
+
+        const [date, time] = anchor.utc.split(' ');
+        const [year, month, day] = date.split('-').map(Number);
+        const [hour, minute] = time.split(':').map(Number);
+        // 天文值為 UTC，故期望值加上宣告的時區偏移
+        const expected = Date.UTC(year, month - 1, day, hour + offsetHours, minute);
+        const actual = Date.UTC(solar.getYear(), solar.getMonth() - 1, solar.getDay(),
+                                solar.getHour(), solar.getMinute());
+        const driftMinutes = Math.round((actual - expected) / 60000);
+
+        t.ok(Math.abs(driftMinutes) <= 2,
+             `${anchor.節氣} 應為天文值 ${anchor.utc} UTC 加 ${offsetHours} 小時` +
+             `（依所宣告的 ${declared.時區}），實差 ${driftMinutes} 分——` +
+             `若相差以小時計，代表宣告與引擎實際所用的時區框架不符`);
+    }
+
+    record(`時間基準宣告 ${declared.時區}（以 ${SOLAR_TERM_UTC_ANCHORS.length} 個至分點天文時刻證實）`,
+           t.errors);
+}
+
+/**
+ * 曆法基準宣告定氣——以節氣間距的離散度證實
+ *
+ * 平氣把回歸年均分二十四份，相鄰節氣間距恆為 365.2422 ÷ 24 = 15.2184 日；
+ * 定氣取視太陽黃經每十五度，因地球軌道為橢圓，間距在近日點約 14.7 日、
+ * 遠日點約 15.7 日。故只需看間距是否等長，即可分辨二者，
+ * 無須任何來自被測程式的期望值。
+ */
+function runCalendarBasisAnchorTest() {
+    const t = createAsserter();
+    const declared = chartToObject(generateChartByDatetime('2024011510'))['曆法基準'];
+    t.ok(Boolean(declared), '自動起盤應帶曆法基準');
+    if (!declared) { record('曆法基準宣告', t.errors); return; }
+    t.ok(['定氣', '平氣'].includes(declared.節氣), `曆法基準的節氣算法：${declared.節氣}`);
+
+    const julianDays = new Set();
+    for (const month of [2, 5, 8, 11]) {
+        const lunar = Solar.fromYmdHms(2024, month, 15, 12, 0, 0).getLunar();
+        for (const solar of Object.values(lunar.getJieQiTable())) {
+            if (solar.getYear() === 2024) julianDays.add(solar.getJulianDay());
+        }
+    }
+    const sorted = [...julianDays].sort((a, b) => a - b);
+    const gaps = [];
+    for (let i = 1; i < sorted.length; i++) {
+        const gap = sorted[i] - sorted[i - 1];
+        if (gap > 10 && gap < 20) gaps.push(gap);   // 濾掉跨年造成的斷點
+    }
+
+    t.ok(gaps.length >= 20, `2024 年應取得二十個以上的相鄰節氣間距，實得 ${gaps.length}`);
+
+    const MEAN_GAP = 365.2422 / 24;                  // 平氣的恆定間距
+    const shortest = Math.min(...gaps);
+    const longest = Math.max(...gaps);
+    const spread = longest - shortest;
+
+    // 依**宣告**分支：宣告平氣就驗間距等長，宣告定氣就驗間距不等長。
+    // 如此兩個方向都被鎖住——引擎換了會紅，宣告改了也會紅。
+    if (declared.節氣 === '平氣') {
+        t.ok(spread < 0.05,
+             `宣告平氣，則節氣間距應等長，實得全距 ${spread.toFixed(3)} 日`);
+        t.ok(Math.abs(shortest - MEAN_GAP) < 0.05,
+             `宣告平氣，則間距應恆為 ${MEAN_GAP.toFixed(4)} 日，實得最短 ${shortest.toFixed(3)} 日`);
+    } else {
+        t.ok(spread > 0.5,
+             `宣告定氣，則節氣間距應不等長，實得全距 ${spread.toFixed(3)} 日——` +
+             `若趨近於零，代表引擎實為平氣而輸出仍宣告定氣`);
+        t.ok(shortest < MEAN_GAP - 0.3,
+             `近日點間距應明顯短於平氣的 ${MEAN_GAP.toFixed(4)} 日，實得最短 ${shortest.toFixed(3)} 日`);
+        t.ok(longest > MEAN_GAP + 0.3,
+             `遠日點間距應明顯長於平氣的 ${MEAN_GAP.toFixed(4)} 日，實得最長 ${longest.toFixed(3)} 日`);
+    }
+
+    record(`曆法基準宣告${declared.節氣}（節氣間距 ${shortest.toFixed(2)}–${longest.toFixed(2)} 日，平氣應恆為 ${MEAN_GAP.toFixed(2)}）`,
+           t.errors);
+}
+
+/**
+ * generateChartNow 的時鐘自陳
+ *
+ * 它取的是本機牆上時鐘，而節氣算在 UTC+8。此處只驗自陳的算術自洽，
+ * 不驗盤面——因為在非 UTC+8 的機器上盤面本來就會不同，那正是要自陳的事。
+ */
+function runLocalClockDeclarationTest() {
+    const t = createAsserter();
+    const clock = chartToObject(generateChartNow())['時鐘來源'];
+
+    t.ok(clock !== undefined, 'generateChartNow 應自陳時鐘來源');
+    if (!clock) { record('generateChartNow 時鐘自陳', t.errors); return; }
+
+    t.equal(clock.來源, '本機時鐘', '時鐘來源');
+    t.equal(clock.盤面基準, 'UTC+08:00', '盤面基準時區');
+    t.ok(Object.isFrozen(clock), '時鐘來源應凍結');
+
+    // 算術自洽：時差必須等於本機偏移減去盤面基準的八小時
+    const localOffsetHours = -new Date().getTimezoneOffset() / 60;
+    t.equal(clock.與盤面基準時差, localOffsetHours - 8, '與盤面基準時差');
+    t.equal(clock.一致, clock.與盤面基準時差 === 0, '一致旗標應與時差相符');
+
+    // 警告的有無必須與一致旗標連動——不一致卻不警告，等於沒有自陳
+    if (clock.一致) {
+        t.equal(clock.警告, null, '一致時不應給出警告');
+    } else {
+        t.ok(typeof clock.警告 === 'string' && clock.警告.includes(clock.本機時區),
+             '不一致時的警告應指名本機時區');
+        t.ok(typeof clock.警告 === 'string' && clock.警告.includes('generateChartByDatetime'),
+             '不一致時的警告應指出可行的替代作法');
+    }
+
+    // UTC±HH:MM 格式
+    t.ok(/^UTC[+-]\d{2}:\d{2}$/.test(clock.本機時區), `本機時區格式：${clock.本機時區}`);
+
+    record(`generateChartNow 時鐘自陳（本機 ${clock.本機時區}，時差 ${clock.與盤面基準時差} 小時）`,
+           t.errors);
+}
+
+// ============================================================================
 // 執行所有測試
 // ============================================================================
 
@@ -2126,6 +2337,12 @@ function runAllTests() {
     runJuMethodDivergenceTest();
     runFuTouInvariantTests();
     runLeapEmergenceTest();
+
+    section('第三部分之八：基準自陳');
+    runBasisDeclarationTest();
+    runTimeBasisAnchorTest();
+    runCalendarBasisAnchorTest();
+    runLocalClockDeclarationTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);

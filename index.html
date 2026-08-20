@@ -166,6 +166,10 @@
         .keying-item .jx.xiong { color: #c62828; }
         .keying-item .jx.zhong { color: #888; }
         .vigor-note { color: #666; font-size: 0.8125rem; margin-bottom: 0.4rem; }
+        .basis-note { color: #666; font-size: 0.75rem; line-height: 1.55; margin-top: 0.6rem;
+                      padding-top: 0.6rem; border-top: 1px solid #eee; }
+        .basis-note strong { color: #333; }
+        .basis-warn { color: #c62828; }
         .vigor-row { font-size: 0.8125rem; padding: 0.1rem 0; }
         .vigor-row .gong { color: #888; margin-right: 0.35rem; }
         .vigor-row .st { margin-left: 0.3rem; }
@@ -333,6 +337,7 @@
                 <div class="panel-header">定局資訊</div>
                 <div class="panel-body">
                     <div class="data-grid" id="infoJu"></div>
+                    <div id="infoBasis"></div>
                 </div>
             </div>
 
@@ -558,6 +563,35 @@ const App = (function() {
         $(containerId).innerHTML = parts.join('');
     }
 
+    /**
+     * 基準自陳：這張盤的節氣取自哪一種曆、輸入被當成哪一種時
+     *
+     * 網頁版以本機時鐘預填日期時間，而節氣算在 UTC+8——境外訪客若不知情，
+     * 第一次用就會拿到與所在地時刻不符的盤。故此處必須明說。
+     */
+    function renderBasis(containerId, chart) {
+        if (!chart.曆法基準 || !chart.時間基準) { $(containerId).innerHTML = ''; return; }
+        var parts = [];
+        parts.push('<strong>曆法基準</strong>　節氣取' + chart.曆法基準.節氣
+            + '，依' + chart.曆法基準.依據 + '。1645 年以前中土行平氣，'
+            + '二者相差可達二日餘而三元一桶僅五日，故明代以前的日期，'
+            + '其三元與局數未必與當時曆書相合。');
+        parts.push('<strong>時間基準</strong>　輸入視為 ' + chart.時間基準.時區
+            + ' ' + chart.時間基準.時制 + '。夏令時間'
+            + chart.時間基準.夏令時間 + '、真太陽時' + chart.時間基準.真太陽時 + '。');
+
+        var local = -new Date().getTimezoneOffset() / 60;
+        if (local !== 8) {
+            parts.push('<span class="basis-warn"><strong>⚠ 本機時區為 UTC'
+                + (local < 0 ? '' : '+') + local + '，與盤面基準相差 ' + (local - 8)
+                + ' 小時。</strong>「當前時間」按鈕以本機牆上時刻預填，'
+                + '該時刻會被直接當成盤面基準時刻排盤，日柱與時柱可能與您所在地的實際時刻不符。</span>');
+        }
+        $(containerId).innerHTML = parts.map(function (p) {
+            return '<div class="basis-note">' + p + '</div>';
+        }).join('');
+    }
+
     /** 旺相休囚：九星依月令（兩家並列），八門依八節輪轉 */
     function renderVigor(containerId, chart) {
         const vigor = Qimen.assessVigor(chart);
@@ -628,6 +662,7 @@ const App = (function() {
         }
         juRows.push({ key: '定局', val: chart.陰陽 + '遁' + chart.局數 + '局' });
         renderDataGrid('infoJu', juRows);
+        renderBasis('infoBasis', chart);
 
         renderDataGrid('infoHub', [
             { key: '旬首', val: chart.旬首 },
