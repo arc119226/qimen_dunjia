@@ -24,6 +24,10 @@ import {
     SIX_XUNS,
     EARTHLY_BRANCHES,
     ZHI_DIRECTIONS,
+    EIGHT_GODS_YANG,
+    EIGHT_GODS_YIN,
+    DIPAN_YANG,
+    DIPAN_YIN,
     XUN_TO_KONGWANG_ZHI,
     XUN_TO_KONGWANG_DIRECTION,
     getGuXu,
@@ -511,6 +515,127 @@ function runXunKongTest() {
 }
 
 // ============================================================================
+// 第三部分之四：經典例題
+// ============================================================================
+/**
+ * 以五部典籍中「逐宮明列」或「逐時演算」的段落作為回歸基準。
+ * 這些是外部權威給定的答案，比自產的黃金值更能防止整體性的錯誤。
+ *
+ * 出處：
+ *   《奇門遁甲統宗》〈以旬首取符使法〉〈值符加時干法〉〈值使飛宮〉
+ *   《遁甲演義》〈八門九星逐時移宮訣〉、卷一起例
+ *   《奇門遁甲元靈經》卷一〈奇門起例〉兩則
+ *   《奇門寶鑑御定》〈釋六儀遁六甲〉
+ *   《遁甲發凡》
+ *   煙波釣叟歌（《演義》錄為〈黃帝陰符經〉）
+ */
+
+const PALACE_NUMBERS = { 巽: 4, 離: 9, 坤: 2, 震: 3, 中: 5, 兌: 7, 艮: 8, 坎: 1, 乾: 6 };
+const palaceIndexOf = number => LUOSHU_NUMBERS.indexOf(number);
+const wrap9 = x => ((x - 1) % 9 + 9) % 9 + 1;
+
+function classicChart(shi, ju, yinYang) {
+    return chartToObject(generateQimenChart('classic', ['甲子', '甲子', '甲子', shi, ju, yinYang]));
+}
+
+/** 三元步進：陽遁每元 -3、陰遁每元 +3（模九）。兩處已知異文皆違反此規則 */
+function runJuStepTest() {
+    const t = createAsserter();
+    for (const [name, cfg] of Object.entries(JIEQI_JUSHU)) {
+        const step = cfg.yang ? -3 : 3;
+        t.equal(wrap9(cfg.ju[0] + step), cfg.ju[1], name + ' 上元→中元');
+        t.equal(wrap9(cfg.ju[1] + step), cfg.ju[2], name + ' 中元→下元');
+    }
+    record('局數表：24 節氣皆合三元步進規則（陽 -3／陰 +3）', t.errors);
+}
+
+/** 地盤：九干依 戊己庚辛壬癸丁丙乙 自局數宮起、陽順陰逆連續排布 */
+function runDiPanRuleTest() {
+    const t = createAsserter();
+    const SEQ = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'];
+    const derive = (ju, isYang) => {
+        const out = new Array(9);
+        SEQ.forEach((gan, i) => { out[palaceIndexOf(wrap9(isYang ? ju + i : ju - i))] = gan; });
+        return out;
+    };
+    for (let ju = 1; ju <= 9; ju++) {
+        t.deepEqual(DIPAN_YANG[ju], derive(ju, true), '陽遁' + ju + '局');
+        t.deepEqual(DIPAN_YIN[ju], derive(ju, false), '陰遁' + ju + '局');
+    }
+    record('地盤：18 局 162 格皆可由「順布六儀逆布三奇」規則反推', t.errors);
+}
+
+/** 煙波釣叟歌：「直符前三六合位，前二太陰君須記。直符後一名九天，後二宮神名九地。」 */
+function runEightGodsVerseTest() {
+    const t = createAsserter();
+    for (const [gods, label] of [[EIGHT_GODS_YANG, '陽遁'], [EIGHT_GODS_YIN, '陰遁']]) {
+        t.equal(gods[3], '六合', label + '直符前三');
+        t.equal(gods[2], '太陰', label + '直符前二');
+        t.equal(gods[7], '九天', label + '直符後一');
+        t.equal(gods[6], '九地', label + '直符後二');
+    }
+    record('八神：煙波釣叟歌所述四個相對位置皆相符', t.errors);
+}
+
+/** 《演義》〈八門九星逐時移宮訣〉陽遁一局逐時實例 */
+function runYanyiHourTest() {
+    const t = createAsserter();
+    const at = (arr, gua) => arr[['巽','離','坤','震','中','兌','艮','坎','乾'].indexOf(gua)];
+
+    // 甲子時：蓬星一宮、休門一宮；丙奇與生門同宮在艮；乙奇在離；丁奇在兌
+    const jz = classicChart('甲子', 1, '陽');
+    t.equal(at(jz['九星'], '坎'), '天蓬', '甲子時天蓬在坎');
+    t.equal(at(jz['天門'], '坎'), '休門', '甲子時休門在坎');
+    t.equal(at(jz['天盤'], '艮'), '丙', '甲子時丙奇在艮');
+    t.equal(at(jz['天門'], '艮'), '生門', '甲子時艮宮為生門');
+    t.equal(at(jz['天盤'], '離'), '乙', '甲子時乙奇在離');
+    t.equal(at(jz['天盤'], '兌'), '丁', '甲子時丁奇在兌');
+
+    // 乙丑時：蓬星在九，休門在二宮；休門與丙奇同在坤二；乙奇在坎；丁奇在震
+    const yc = classicChart('乙丑', 1, '陽');
+    t.equal(at(yc['九星'], '離'), '天蓬', '乙丑時天蓬在離');
+    t.equal(at(yc['天門'], '坤'), '休門', '乙丑時休門在坤');
+    t.equal(at(yc['天盤'], '坤'), '丙', '乙丑時丙奇在坤');
+    t.equal(at(yc['天盤'], '坎'), '乙', '乙丑時乙奇在坎');
+    t.equal(at(yc['天盤'], '震'), '丁', '乙丑時丁奇在震');
+
+    // 丙寅時：蓬星在八宮，休門在三宮；休門與丙奇在震；乙奇在二宮；丁奇在六宮
+    const by = classicChart('丙寅', 1, '陽');
+    t.equal(at(by['九星'], '艮'), '天蓬', '丙寅時天蓬在艮');
+    t.equal(at(by['天門'], '震'), '休門', '丙寅時休門在震');
+    t.equal(at(by['天盤'], '震'), '丙', '丙寅時丙奇在震');
+    t.equal(at(by['天盤'], '坤'), '乙', '丙寅時乙奇在坤');
+    t.equal(at(by['天盤'], '乾'), '丁', '丙寅時丁奇在乾');
+
+    record('《演義》陽遁一局甲子／乙丑／丙寅三時的天盤三奇與八門', t.errors);
+}
+
+/** 《元靈經》卷一兩則起例 */
+function runYuanlingTest() {
+    const t = createAsserter();
+
+    // 例一 陽遁九局丙辰時：甲寅符頭，中宮之癸為值符 → 天禽加兌；借坤宮死門加兌為值使
+    const a = classicChart('丙辰', 9, '陽');
+    t.equal(a['旬首'], '甲寅', '例一旬首');
+    t.equal(a['符首'], '癸', '例一符首');
+    t.equal(a['值符'], '天禽', '例一值符');
+    t.equal(a['值符落宮'], '兌', '例一值符落宮（天禽加兌）');
+    t.equal(a['值使'], '死門', '例一值使（借坤宮死門）');
+    t.equal(a['值使落宮'], '兌', '例一值使落宮');
+
+    // 例二 陰遁八局辛未時：甲子符頭，艮宮戊為值符；自艮宮逆數至辛未在坎，艮宮生門加坎
+    // 註：原文「天任加中」屬飛盤法，本專案為轉盤法故落坤，此處不做斷言（見報告）
+    const b = classicChart('辛未', 8, '陰');
+    t.equal(b['旬首'], '甲子', '例二旬首');
+    t.equal(b['符首'], '戊', '例二符首');
+    t.equal(b['值符'], '天任', '例二值符');
+    t.equal(b['值使'], '生門', '例二值使');
+    t.equal(b['值使落宮'], '坎', '例二值使落宮');
+
+    record('《元靈經》兩則起例（符首落中宮／時干落中宮）', t.errors);
+}
+
+// ============================================================================
 // 第四部分：輸入驗證
 // ============================================================================
 
@@ -649,6 +774,13 @@ function runAllTests() {
     section('第三部分之三：旬空與孤虛');
     runVoidTest();
     runXunKongTest();
+
+    section('第三部分之四：經典例題');
+    runJuStepTest();
+    runDiPanRuleTest();
+    runEightGodsVerseTest();
+    runYanyiHourTest();
+    runYuanlingTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);
