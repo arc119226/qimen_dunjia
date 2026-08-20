@@ -65,9 +65,13 @@ await build({
 });
 
 // 同一份聲明另存一檔，隨 release zip 散布
+// 行尾明確正規化為 LF：本檔以樣板字串產生授權檔，若建置腳本自身被簽出成
+// CRLF，產物的行尾也會跟著變，令 CI 的 `git diff --quiet -- dist/` 假紅燈
+const toLf = text => text.split('\r\n').join('\n');
+
 writeFileSync(
     new URL('./dist/THIRD-PARTY-LICENSES.txt', import.meta.url),
-    `${pkg.name} v${pkg.version} 的打包產物 dist/qimen.standalone.min.js
+    toLf(`${pkg.name} v${pkg.version} 的打包產物 dist/qimen.standalone.min.js
 內嵌下列第三方軟體。dist/qimen.min.js 不內嵌，改以外部相依方式引入。
 
 本檔由 build.mjs 自 node_modules 直接產生，請勿手動編輯。
@@ -78,7 +82,7 @@ ${dep.homepage}
 
 ${depLicense}
 ================================================================================
-`,
+`),
     'utf8'
 );
 

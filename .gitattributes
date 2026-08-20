@@ -6,3 +6,8 @@
 # 而 esbuild 重建時寫入 LF，導致 `git status` 永遠把 dist/ 標記為已修改
 # ——即使內容是零 byte 差異。
 dist/*.js -text
+dist/THIRD-PARTY-LICENSES.txt -text
+
+# 建置腳本同理：它以樣板字串產生 THIRD-PARTY-LICENSES.txt，
+# 若自身被簽出成 CRLF，產物的行尾也會跟著變，令 CI 的 dist 同步檢查假紅燈。
+build.mjs -text
