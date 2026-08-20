@@ -302,6 +302,13 @@
                         <option value="12">晚子時 (23-00)</option>
                     </select>
                 </div>
+                <div class="input-group">
+                    <label for="inputMethod">定局法</label>
+                    <select id="inputMethod">
+                        <option value="拆補">拆補法（自節氣交接起算）</option>
+                        <option value="符頭">符頭法（超神接氣置閏）</option>
+                    </select>
+                </div>
                 <button class="btn" onclick="App.generate()">起盤</button>
                 <button class="btn btn-secondary" onclick="App.setNow()">當前時間</button>
             </div>
@@ -323,7 +330,7 @@
 
             <!-- 定局資訊 -->
             <div class="panel">
-                <div class="panel-header">定局資訊（拆補法）</div>
+                <div class="panel-header">定局資訊</div>
                 <div class="panel-body">
                     <div class="data-grid" id="infoJu"></div>
                 </div>
@@ -606,12 +613,21 @@ const App = (function() {
             { key: '局數', val: chart.局數 + '局' }
         ]);
 
-        renderDataGrid('infoJu', [
+        const juRows = [
+            { key: '定局法', val: chart.定局法 + '法' },
             { key: '節氣', val: chart.節氣 },
-            { key: '三元', val: chart.三元 },
-            { key: '節後天數', val: chart.節後天數 + '天' },
-            { key: '定局', val: chart.陰陽 + '遁' + chart.局數 + '局' }
-        ]);
+            { key: '三元', val: chart.三元 }
+        ];
+        if (chart.定局法 === '符頭') {
+            juRows.push({ key: '上元符頭', val: chart.上元符頭 });
+            juRows.push({ key: '本元符頭', val: chart.符頭 });
+            juRows.push({ key: '超接', val: chart.超接 + (chart.超接天數 ? chart.超接天數 + '天' : '') });
+            juRows.push({ key: '閏局', val: chart.閏局 ? '是（重用本氣三元）' : '否' });
+        } else {
+            juRows.push({ key: '節後天數', val: chart.節後天數 + '天' });
+        }
+        juRows.push({ key: '定局', val: chart.陰陽 + '遁' + chart.局數 + '局' });
+        renderDataGrid('infoJu', juRows);
 
         renderDataGrid('infoHub', [
             { key: '旬首', val: chart.旬首 },
@@ -673,8 +689,11 @@ const App = (function() {
             const datetime = String(parts[0]).padStart(4, '0') +
                              pad2(parts[1]) + pad2(parts[2]) + pad2(HOUR_MAP[hourIndex]);
 
-            // 四柱、拆補法定局、五層盤面全部由函式庫一次完成
-            const chart = Qimen.chartToObject(Qimen.generateChartByDatetime(datetime));
+            // 四柱、定局、五層盤面全部由函式庫一次完成
+            const method = $('inputMethod').value;
+            const chart = Qimen.chartToObject(
+                Qimen.generateChartByDatetime(datetime, { 定局法: method })
+            );
 
             renderChart(chart);
 

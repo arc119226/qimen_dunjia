@@ -119,7 +119,23 @@ Verified against 《奇門遁甲統宗》〈以旬首取符使法〉: "甲辰在
 
 **天禽 never moves** in the 九星 array — `rotateMapping` pins it at index 4. It is 寄坤 and travels with 天芮. Therefore `getZhiFuStarPosition()` looks up 天芮 when 值符 is 天禽; reading 天禽's literal array index would report 「中」 and contradict both classics, which require 八神's 值符 to share the palace with the 九星 值符 (統宗〈小值符加大值符法〉, 發凡〈小直符加大直符〉). `天禽寄宮` reports the same palace as an arrow.
 
-**Chai Bu Method (拆補法)**: The system uses the Chai Bu method (not Zhi Run method) for determining game numbers. It measures elapsed time from the exact solar-term **transition instant** (via Julian day, fractional) and divides into three Yuan periods: 上元 = [0, 5) days, 中元 = [5, 10) days, 下元 = 10+ days. `節後天數` is 0-based (the solar-term day itself is `0`).
+**Two 定局法 schools, both shipped.** `generateChartByDatetime(datetime, {定局法})` takes
+`'拆補'` (default) or `'符頭'`. They are not two names for one thing — **92.6% of 2024's
+hours get a different bureau**. 《寶鑒御定》 records the fight verbatim: it calls the
+拆補 school 「創為拆補以亂符頭」「殊違尊甲之旨」. The project picks neither.
+
+符頭法 (`calculateJuByFuTou`): the 上元符頭 are only 甲子/己卯/甲午/己酉 (every 15 days);
+元 = ⌊days since ÷ 5⌋; the governing 節氣 is the latest one **no later than 上元符頭 + 9 days**
+(《寶鑒》「起超不可過九日」). 置閏 **emerges** from 15 ÷ 15.2184 = 0.9857 < 1 — the index
+stalls every ~69 節氣, i.e. two cycles share one 節氣 = 「重用本氣三元」. No anchor needed.
+Measured 1900–2100: offset range exactly [接氣6, 超神9], 91 leaps ≈ one per 2.2 years.
+
+Known gaps, both pinned by numbers in test.js: (1) day granularity, so 《法竅》's hour-level
+疊局 is not modelled; (2) the leap lands on the arithmetically-forced 節氣 rather than being
+deferred to 芒種/大雪 as 《寶鑒》 prescribes — costing 21 skipped 節氣 per 200 years, all in
+winter. Deferring would fix it and is the obvious next step.
+
+**Chai Bu Method (拆補法)**: The default. It measures elapsed time from the transition instant. It measures elapsed time from the exact solar-term **transition instant** (via Julian day, fractional) and divides into three Yuan periods: 上元 = [0, 5) days, 中元 = [5, 10) days, 下元 = 10+ days. `節後天數` is 0-based (the solar-term day itself is `0`).
 
 Note this is deliberately instant-based, not calendar-day-based: the Yuan boundary falls at the transition time of day, not at midnight. A calendar-day school would classify days 6 and 11 differently for the hours before that time.
 
@@ -156,7 +172,8 @@ Note this is deliberately instant-based, not calendar-day-based: the Yuan bounda
 - `calculateEightDoors()`: Rotates based on Zhi Shi door position
 - `calculateNineStars()`: Rotates based on Zhi Fu star position
 - `calculateEightGods()`: Special logic for Yang/Yin modes with different deity sets
-- `calculateJuByChaiBu()`: Implements Chai Bu method for auto game number determination
+- `calculateJuByChaiBu()`: 拆補法 — elapsed time from the solar-term transition instant
+- `calculateJuByFuTou()`: 符頭法 — 甲己 符頭 with 超神接氣置閏; see the 定局法 note above
 
 **lunar-javascript** (npm package by 6tail): Used for:
 - Solar to lunar calendar conversion

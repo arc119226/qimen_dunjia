@@ -160,8 +160,9 @@ export {
     getDirectionArrow,
     getZhiShiPosition,
     
-    // 拆補法定局
-    calculateJuByChaiBu
+    // 定局
+    calculateJuByChaiBu,
+    calculateJuByFuTou
 } from './calculations.js';
 
 // 匯出格局判斷

@@ -1792,6 +1792,273 @@ function runConsistencyTest() {
 }
 
 // ============================================================================
+// 定局法：拆補與符頭
+// ============================================================================
+
+/**
+ * 《奇門法竅》〈論拆局補局〉的兩則算例
+ *
+ * 原文所繫年份為「歲在丙申」，然其所述干支序列（丙子→戊寅→己卯→甲申→己丑）
+ * 與該文的曆日日序不能兩全；干支序列自身完全自洽（己卯＋5＝甲申＋5＝己丑），
+ * 故以干支反查真實曆日，取立春交於丙子日、白露交於己酉日者為驗。
+ *
+ * 算例一原文：「當是先年大寒下元…系甲戌下局之符頭統領…十二日己卯…作立春上元；
+ *   十七日甲申…作立春中元；二十二日己丑…作立春下局」
+ * 算例二原文：「七月二十九日甲午…作處暑上局；初四日己亥…處暑中局；
+ *   初九日甲辰…處暑下局；十四日己酉寅初三刻白露」
+ */
+const FA_QIAO_JU_CASES = [
+    {
+        名: '算例一：立春交於丙子日（1974）',
+        起: [1974, 2, 1],
+        期望: {
+            丙子: { 節氣: '大寒', 三元: '下元', 符頭: '甲戌' },
+            丁丑: { 節氣: '大寒', 三元: '下元', 符頭: '甲戌' },
+            戊寅: { 節氣: '大寒', 三元: '下元', 符頭: '甲戌' },
+            己卯: { 節氣: '立春', 三元: '上元', 符頭: '己卯' },
+            甲申: { 節氣: '立春', 三元: '中元', 符頭: '甲申' },
+            己丑: { 節氣: '立春', 三元: '下元', 符頭: '己丑' }
+        }
+    },
+    {
+        名: '算例二：白露交於己酉日（1962）',
+        起: [1962, 8, 20],
+        期望: {
+            甲午: { 節氣: '處暑', 三元: '上元', 符頭: '甲午' },
+            己亥: { 節氣: '處暑', 三元: '中元', 符頭: '己亥' },
+            甲辰: { 節氣: '處暑', 三元: '下元', 符頭: '甲辰' },
+            己酉: { 節氣: '白露', 三元: '上元', 符頭: '己酉' }
+        }
+    }
+];
+
+function ymdhToString(year, month, day) {
+    return `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}12`;
+}
+
+function addDays([year, month, day], offset) {
+    const date = new Date(Date.UTC(year, month - 1, day + offset));
+    return [date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate()];
+}
+
+/** 《法竅》兩則算例：符頭法必須逐日重現其節氣、三元與符頭 */
+function runFaQiaoJuTests() {
+    for (const kase of FA_QIAO_JU_CASES) {
+        const t = createAsserter();
+        const seen = new Set();
+
+        for (let offset = 0; offset < 30; offset++) {
+            const [y, m, d] = addDays(kase.起, offset);
+            const obj = chartToObject(
+                generateChartByDatetime(ymdhToString(y, m, d), { 定局法: '符頭' })
+            );
+            const expected = kase.期望[obj['日柱']];
+            if (!expected) continue;
+            seen.add(obj['日柱']);
+
+            const where = `${y}-${m}-${d} 日柱${obj['日柱']}`;
+            t.equal(obj['節氣'], expected.節氣, `${where} 節氣`);
+            t.equal(obj['三元'], expected.三元, `${where} 三元`);
+            t.equal(obj['符頭'], expected.符頭, `${where} 符頭`);
+            t.equal(obj['定局法'], '符頭', `${where} 定局法`);
+        }
+
+        for (const ganZhi of Object.keys(kase.期望)) {
+            t.ok(seen.has(ganZhi), `三十日內未遇日柱 ${ganZhi}，算例未能完整比對`);
+        }
+
+        record(`《法竅》${kase.名}`, truncate(t.errors, 12));
+    }
+}
+
+/**
+ * 符頭法的結構不變式
+ *
+ * 《寶鑒御定》：「考古法以甲子、己卯、甲午、己酉為符頭者…故立符以定元首也」
+ *               「起超不可過九日，如過九日，即當置閏也」
+ *
+ * 超神上限九日，置閏後退十五日即接氣六日，故偏離必落在 [接氣6, 超神9]。
+ * 這是純結構性的界，與任何流派選擇無關；越界即代表演算法壞了。
+ */
+function runFuTouInvariantTests() {
+    const t = createAsserter();
+    const shangYuanFuTou = new Set(['甲子', '己卯', '甲午', '己酉']);
+    const yuanNames = ['上元', '中元', '下元'];
+    const offsets = [];
+    const outOfRange = [];
+    const badFuTou = [];
+    const chaoJieSeen = new Set();
+
+    // 1900–2100，每十五日取樣一次（每個符頭循環恰取一點）
+    let cursor = [1900, 1, 20];
+    for (let step = 0; step < 4880; step++) {
+        const [y, m, d] = cursor;
+        cursor = addDays(cursor, 15);
+        if (y > 2100) break;
+
+        const obj = chartToObject(
+            generateChartByDatetime(ymdhToString(y, m, d), { 定局法: '符頭' })
+        );
+
+        if (!shangYuanFuTou.has(obj['上元符頭'])) {
+            badFuTou.push(`${y}-${m}-${d} 上元符頭 ${obj['上元符頭']} 不在甲子、己卯、甲午、己酉之列`);
+        }
+        if (obj['符頭'][0] !== '甲' && obj['符頭'][0] !== '己') {
+            badFuTou.push(`${y}-${m}-${d} 符頭 ${obj['符頭']} 非甲己日`);
+        }
+
+        const signed = obj['超接'] === '接氣' ? -obj['超接天數'] : obj['超接天數'];
+        offsets.push(signed);
+        chaoJieSeen.add(obj['超接']);
+        if (signed < -6 || signed > 9) {
+            outOfRange.push(`${y}-${m}-${d} 偏離 ${obj['超接']}${obj['超接天數']} 日`);
+        }
+
+        t.ok(yuanNames.includes(obj['三元']), `${y}-${m}-${d} 三元 ${obj['三元']} 非法`);
+    }
+
+    for (const e of truncate(badFuTou, 5)) t.errors.push(e);
+    for (const e of truncate(outOfRange, 5)) t.errors.push(e);
+
+    t.equal(Math.min(...offsets), -6, '接氣極值應為 6 日（超神 9 日退一循環十五日）');
+    t.equal(Math.max(...offsets), 9, '超神極值應為 9 日（《寶鑒》「起超不可過九日」）');
+    t.deepEqual([...chaoJieSeen].sort(), ['接氣', '正授', '超神'], '超神、接氣、正授三態俱應出現');
+
+    record(`符頭法結構不變式（1900–2100，${offsets.length} 個循環）`, truncate(t.errors, 12));
+}
+
+/**
+ * 置閏的湧現與其代價
+ *
+ * 符頭循環固定十五日，節氣平均十五點二一八四日，比值 0.9857 略小於一，
+ * 故「不遲於符頭後九日之最晚節氣」這一指標每約六十九個節氣停滯一次——
+ * 停滯即相鄰兩循環共用同一節氣，正是《寶鑒》「重用本氣三元」的置閏，
+ * 無須外部錨點而自然湧現。
+ *
+ * 代價亦須記錄：節氣間隔並非等長（近日點約 14.7 日、遠日點約 15.7 日），
+ * 故此無記憶規則在冬季偶爾一次推進兩格，跳過一個節氣，
+ * 違背《寶鑒》「俾三元之次序不紊」。《寶鑒》古法將閏推遲至芒種或大雪
+ * 正可消去此事；本實作未行推遲，此測試把代價釘在數字上，
+ * 使日後若改採推遲，能立刻看出差異。
+ */
+function runLeapEmergenceTest() {
+    const t = createAsserter();
+    let leaps = 0;
+    let blocks = 0;
+    let previousJieQi = null;
+    const leapMonths = new Set();
+
+    let cursor = [1900, 1, 20];
+    for (let step = 0; step < 4880; step++) {
+        const [y, m, d] = cursor;
+        cursor = addDays(cursor, 15);
+        if (y > 2100) break;
+
+        const obj = chartToObject(
+            generateChartByDatetime(ymdhToString(y, m, d), { 定局法: '符頭' })
+        );
+        blocks++;
+        if (obj['閏局']) {
+            leaps++;
+            leapMonths.add(obj['節氣']);
+            t.equal(obj['節氣'], previousJieQi, `${y}-${m}-${d} 標為閏局，其節氣應與前一循環相同`);
+        }
+        previousJieQi = obj['節氣'];
+    }
+
+    // 理論：漂移滿十五日需 15 ÷ (365.2422/24 − 15) ≈ 68.7 個節氣 ≈ 2.86 年
+    const yearsPerLeap = 201 / leaps;
+    t.ok(leaps > 60 && leaps < 110, `兩百年置閏 ${leaps} 次（每 ${yearsPerLeap.toFixed(2)} 年一閏），偏離理論值 2.86 年過遠`);
+    t.ok(blocks > 4800, `取樣循環數 ${blocks} 過少`);
+
+    // 置閏落點集中於夏季——遠日點節氣間隔最長，漂移最快
+    const summer = ['芒種', '夏至', '小暑', '大暑'];
+    t.ok(
+        summer.some(name => leapMonths.has(name)),
+        `置閏落點 ${[...leapMonths].join('、')} 未含芒種前後，與《寶鑒》「二至之前有閏奇」不合`
+    );
+
+    record(`置閏自然湧現（兩百年 ${leaps} 次，每 ${yearsPerLeap.toFixed(2)} 年一閏）`, truncate(t.errors, 8));
+}
+
+/**
+ * 兩派定局法的分歧
+ *
+ * 《寶鑒御定》記錄了這場爭論：李氏主拆補而斥超閏，寶鑒斥拆補
+ * 「以亂符頭」「殊違尊甲之旨」。本專案不代為擇一，兩法俱備，
+ * 但必須量出分歧有多大——若兩法結果幾乎相同，這個選項就沒有存在意義；
+ * 實測九成以上時刻局數不同，故它確實是兩套盤，不是兩個名字。
+ */
+function runJuMethodDivergenceTest() {
+    const t = createAsserter();
+    let same = 0;
+    let different = 0;
+
+    for (let month = 1; month <= 12; month++) {
+        for (let day = 1; day <= 28; day++) {
+            const datetime = ymdhToString(2024, month, day);
+            const chaiBu = chartToObject(generateChartByDatetime(datetime));
+            const fuTou = chartToObject(generateChartByDatetime(datetime, { 定局法: '符頭' }));
+
+            if (chaiBu['局數'] === fuTou['局數'] && chaiBu['陰陽'] === fuTou['陰陽']) same++;
+            else different++;
+
+            t.equal(chaiBu['定局法'], '拆補', `${datetime} 預設定局法`);
+            t.equal(fuTou['定局法'], '符頭', `${datetime} 指定定局法`);
+        }
+    }
+
+    const rate = different / (same + different);
+    t.ok(rate > 0.8, `2024 年兩法分歧率僅 ${(rate * 100).toFixed(1)}%，低於預期——選項恐已失效`);
+    t.equal(same + different, 336, '取樣日數');
+
+    record(`拆補與符頭之分歧（2024 全年 336 時，${(rate * 100).toFixed(1)}% 局數不同）`, truncate(t.errors, 8));
+}
+
+/** 定局法選項不得破壞既有行為，未知定局法必須拋錯而非默默取預設 */
+function runJuMethodOptionTests() {
+    const t = createAsserter();
+    const datetime = '2024011510';
+
+    const implicit = chartToObject(generateChartByDatetime(datetime));
+    const explicit = chartToObject(generateChartByDatetime(datetime, {}));
+    const named = chartToObject(generateChartByDatetime(datetime, { 定局法: '拆補' }));
+
+    for (const key of ['節氣', '三元', '局數', '陰陽', '節後天數', '定局法']) {
+        t.equal(explicit[key], implicit[key], `傳空物件不得改變 ${key}`);
+        t.equal(named[key], implicit[key], `明寫「拆補」不得改變 ${key}`);
+    }
+    t.equal(implicit['定局法'], '拆補', '預設定局法為拆補');
+    t.equal(implicit['符頭'], undefined, '拆補法不應輸出符頭欄位');
+    t.equal(implicit['閏局'], undefined, '拆補法不應輸出閏局欄位');
+
+    const fuTou = chartToObject(generateChartByDatetime(datetime, { 定局法: '符頭' }));
+    t.equal(fuTou['節後天數'], undefined, '符頭法不應輸出節後天數——該欄位是拆補法的量度');
+    t.ok(typeof fuTou['超接天數'] === 'number', '符頭法應輸出超接天數');
+    t.ok(typeof fuTou['閏局'] === 'boolean', '符頭法應輸出閏局旗標');
+
+    let threw = null;
+    try {
+        generateChartByDatetime(datetime, { 定局法: '飛盤' });
+    } catch (error) {
+        threw = error.message;
+    }
+    t.ok(threw !== null, '未知定局法必須拋錯');
+    t.ok(threw !== null && threw.includes('飛盤'), '錯誤訊息應指出所傳的定局法');
+
+    // 符頭法所出之盤必須與手動起盤一致——定局法只換局數，不換排盤規則
+    const manual = chartToObject(generateQimenChart({
+        年柱: fuTou['年柱'], 月柱: fuTou['月柱'], 日柱: fuTou['日柱'], 時柱: fuTou['時柱'],
+        局數: fuTou['局數'], 陰陽: fuTou['陰陽']
+    }));
+    for (const key of ['地盤', '天盤', '天門', '九星', '八神', '值符', '值使']) {
+        t.deepEqual(fuTou[key], manual[key], `符頭法盤面 ${key} 應與手動起盤一致`);
+    }
+
+    record('定局法選項（預設不變、未知拋錯、盤面一致）', truncate(t.errors, 10));
+}
+
+// ============================================================================
 // 執行所有測試
 // ============================================================================
 
@@ -1852,6 +2119,13 @@ function runAllTests() {
     runVigorTest();
     runDoorVigorTest();
     runVigorFallbackTest();
+
+    section('第三部分之七：定局法');
+    runFaQiaoJuTests();
+    runJuMethodOptionTests();
+    runJuMethodDivergenceTest();
+    runFuTouInvariantTests();
+    runLeapEmergenceTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);

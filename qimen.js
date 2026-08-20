@@ -26,6 +26,7 @@ import {
 import { JIEQI_JUSHU, YUAN_NAMES } from './constants.js';
 
 import {
+    calculateJuByFuTou,
     getHeTu,
     getLuoShu,
     calculateFlyingStars,
@@ -370,12 +371,25 @@ function parseDatetime(datetime) {
 }
 
 /**
+ * 定局法：由選項挑選定局函數
+ *
+ * 拆補法（預設）自節氣交接時刻起算天數；符頭法以甲己日為符頭、行超神接氣置閏，
+ * 是九部典籍的主流。兩者對同一時刻幾乎總是給出不同局數，故必須明示所用者。
+ */
+const JU_METHODS = Object.freeze({
+    拆補: calculateJuByChaiBu,
+    符頭: calculateJuByFuTou
+});
+
+/**
  * 從 Solar 物件生成盤局
  *
  * @param {Solar} solar - lunar-javascript 的 Solar 物件
+ * @param {Object} [options] - 選項
+ * @param {string} [options.定局法] - 「拆補」（預設）或「符頭」
  * @returns {Object} 包含盤局和定局資訊的物件
  */
-function generateChartFromSolar(solar) {
+function generateChartFromSolar(solar, options = {}) {
     const lunar = solar.getLunar();
 
     // 取得四柱（使用精確計算，考慮節氣交接）
@@ -384,8 +398,13 @@ function generateChartFromSolar(solar) {
     const dayPillar = lunar.getDayInGanZhiExact();
     const timePillar = lunar.getTimeInGanZhi();
 
-    // 拆補法定局
-    const juResult = calculateJuByChaiBu(solar, JIEQI_JUSHU, YUAN_NAMES);
+    // 定局
+    const methodName = options.定局法 || '拆補';
+    const method = JU_METHODS[methodName];
+    if (!method) {
+        throw new Error(`未知的定局法：${methodName}（可用：${Object.keys(JU_METHODS).join('、')}）`);
+    }
+    const juResult = method(solar, JIEQI_JUSHU, YUAN_NAMES);
 
     // 生成盤局
     const chart = generateQimenChart({
@@ -415,6 +434,9 @@ function generateChartFromSolar(solar) {
  * 4. 生成完整盤局
  *
  * @param {string} datetime - 日期時間字串，格式：yyyyMMddHH（24小時制，HH 為 0-23）
+ * @param {Object} [options] - 選項
+ * @param {string} [options.定局法] - 「拆補」（預設，自節氣交接時刻起算）或
+ *                                    「符頭」（甲己符頭，超神接氣置閏，典籍主流）
  * @returns {Map} 完整的盤局結果，額外包含節氣、三元等定局資訊
  *
  * @example
@@ -425,7 +447,7 @@ function generateChartFromSolar(solar) {
  * console.log(obj['三元']);  // 中元
  * console.log(obj['局數']);  // 8
  */
-export function generateChartByDatetime(datetime) {
+export function generateChartByDatetime(datetime, options = {}) {
     // 解析日期時間
     const { year, month, day, hour } = parseDatetime(datetime);
 
@@ -433,12 +455,21 @@ export function generateChartByDatetime(datetime) {
     const solar = Solar.fromYmdHms(year, month, day, hour, 0, 0);
 
     // 生成盤局
-    const { chart, juResult } = generateChartFromSolar(solar);
+    const { chart, juResult } = generateChartFromSolar(solar, options);
 
     // 附加定局資訊到結果
     chart.set('節氣', juResult.jieQiName);
     chart.set('三元', juResult.yuanName);
-    chart.set('節後天數', juResult.daysSinceJieQi);
+    chart.set('定局法', juResult.定局法 || '拆補');
+    if (juResult.定局法 === '符頭') {
+        chart.set('符頭', juResult.符頭);
+        chart.set('上元符頭', juResult.上元符頭);
+        chart.set('超接', juResult.超接);
+        chart.set('超接天數', juResult.超接天數);
+        chart.set('閏局', juResult.閏局);
+    } else {
+        chart.set('節後天數', juResult.daysSinceJieQi);
+    }
 
     return chart;
 }
@@ -448,6 +479,7 @@ export function generateChartByDatetime(datetime) {
  *
  * 此函數使用系統當前時間自動起盤，適用於即時占卜。
  *
+ * @param {Object} [options] - 選項，同 generateChartByDatetime
  * @returns {Map} 完整的盤局結果，額外包含節氣、三元等定局資訊
  *
  * @example
@@ -456,7 +488,7 @@ export function generateChartByDatetime(datetime) {
  * console.log(obj['年柱'], obj['月柱'], obj['日柱'], obj['時柱']);
  * console.log(obj['節氣'], obj['三元'], obj['局數']);
  */
-export function generateChartNow() {
+export function generateChartNow(options = {}) {
     const now = new Date();
 
     // 格式化為 yyyyMMddHH
@@ -466,7 +498,7 @@ export function generateChartNow() {
         now.getDate().toString().padStart(2, '0') +
         now.getHours().toString().padStart(2, '0');
 
-    return generateChartByDatetime(datetime);
+    return generateChartByDatetime(datetime, options);
 }
 
 export default {
