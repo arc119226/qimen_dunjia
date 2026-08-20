@@ -145,6 +145,26 @@
         .pattern-item .detail { color: #555; margin-top: 0.15rem; }
         .pattern-item .source { color: #999; font-size: 0.75rem; margin-top: 0.1rem; }
         .pattern-empty { color: #999; font-size: 0.875rem; padding: 0.5rem 0; }
+        .pattern-sub {
+            color: #666;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            margin: 0.75rem 0 0.25rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #eee;
+        }
+        .keying-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+            gap: 0.25rem 1rem;
+            font-size: 0.8125rem;
+        }
+        .keying-item { padding: 0.15rem 0; }
+        .keying-item .gong { color: #888; margin-right: 0.35rem; }
+        .keying-item .jx { margin-right: 0.35rem; }
+        .keying-item .jx.ji { color: #2e7d32; }
+        .keying-item .jx.xiong { color: #c62828; }
+        .keying-item .jx.zhong { color: #888; }
         .data-item .val { font-weight: 500; }
 
         /* ========== 九宮格 ========== */
@@ -481,20 +501,40 @@ const App = (function() {
     /** 格局判定：每則列出格名、落宮、細節與出處 */
     function renderPatterns(containerId, chart) {
         const items = Qimen.detectPatterns(chart);
-        if (!items.length) {
-            $(containerId).innerHTML = '<div class="pattern-empty">此局無所列格局</div>';
-            return;
+        const formations = items.filter(function(i) { return i.類 === '格局'; });
+        const keying = items.filter(function(i) { return i.類 === '十干克應'; });
+        const parts = [];
+
+        if (formations.length) {
+            parts.push(formations.map(function(item) {
+                const src = item.出處[0];
+                return '<div class="pattern-item">' +
+                       '<span class="tag ' + (item.吉凶 === '吉' ? 'ji' : 'xiong') + '">' + item.吉凶 + '</span>' +
+                       '<span class="name">' + item.格 + (item.宮 ? '＠' + item.宮 + '宮' : '') + '</span>' +
+                       (item.讀法 ? '<span class="reading">' + item.讀法 + '</span>' : '') +
+                       '<div class="detail">' + item.細節 + '</div>' +
+                       '<div class="source">《' + src.書 + '》' + src.篇 + '</div>' +
+                       '</div>';
+            }).join(''));
+        } else {
+            parts.push('<div class="pattern-empty">此局無所列格局</div>');
         }
-        $(containerId).innerHTML = items.map(function(item) {
-            const src = item.出處[0];
-            return '<div class="pattern-item">' +
-                   '<span class="tag ' + (item.吉凶 === '吉' ? 'ji' : 'xiong') + '">' + item.吉凶 + '</span>' +
-                   '<span class="name">' + item.格 + (item.宮 ? '＠' + item.宮 + '宮' : '') + '</span>' +
-                   (item.讀法 ? '<span class="reading">' + item.讀法 + '</span>' : '') +
-                   '<div class="detail">' + item.細節 + '</div>' +
-                   '<div class="source">《' + src.書 + '》' + src.篇 + '</div>' +
-                   '</div>';
-        }).join('');
+
+        if (keying.length) {
+            parts.push('<div class="pattern-sub">十干克應（九宮逐格）</div>');
+            parts.push('<div class="keying-grid">' + keying.map(function(item) {
+                const cls = item.吉凶 === '吉' ? 'ji' : (item.吉凶 === '凶' ? 'xiong' : 'zhong');
+                const alt = item.異名
+                    ? ' title="異名：' + item.異名.map(function(a) { return a.名 + '（' + a.書 + '）'; }).join('／') + '"'
+                    : '';
+                return '<div class="keying-item"' + alt + '>' +
+                       '<span class="gong">' + item.宮 + '</span>' +
+                       '<span class="jx ' + cls + '">' + item.吉凶 + '</span>' +
+                       item.格 + '</div>';
+            }).join('') + '</div>');
+        }
+
+        $(containerId).innerHTML = parts.join('');
     }
 
     function formatList(value) {

@@ -172,7 +172,8 @@ export {
     detectSanQiRuMu,
     detectSanDun,
     detectLiuYiJiXing,
-    detectJieLuKongWang
+    detectJieLuKongWang,
+    detectShiGanKeYing
 } from './patterns.js';
 
 // 匯出主控函數

@@ -175,7 +175,19 @@ Four rules govern this module:
    list explicitly. 門迫 is derived from 五行 relations and asserted against
    《法竅》〈論八門迫制〉's 13 explicit pairs.
 
-Currently implemented (9): 伏吟、反吟、門迫、五不遇時、三奇得使、三奇入墓、天地人三遁、六儀擊刑、截路空亡.
+Findings come in two `類`: **格局** (named formations — 9 implemented: 伏吟、反吟、門迫、
+五不遇時、三奇得使、三奇入墓、天地人三遁、六儀擊刑、截路空亡) and **十干克應**
+(the 81-cell 天盤干 × 地盤干 table — 甲 hides in the 六儀 and never reaches the plate,
+so it is 9×9, not 10×10; every chart yields exactly 9 of these, one per palace).
+
+**The two 類 collide on names**: the 戊戊 cell of 十干克應 is itself called 伏吟 in the
+classics, which is not the same thing as plate-level 伏吟 (天盤 identical to 地盤).
+Always filter by `類` before matching on `格`.
+
+The 十干克應 table was built from 《旨歸》卷五 and 《秘笈大全》〈十干剋應訣〉 (which agree
+almost character for character); 《法竅》's separate naming lives in `異名`.
+《統宗》〈奇門四十格〉 was **not** used to build it — its ten 十干克應 entries serve as an
+independent check in test.js.
 
 **test.js**: Assertion-driven test suite (42 tests). Every case compares against expected
 values; the golden values in `chartTestCases` were hand-verified against traditional rules

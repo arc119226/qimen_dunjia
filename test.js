@@ -46,6 +46,7 @@ import {
     detectSanQiRuMu,
     detectSanDun,
     detectJieLuKongWang,
+    detectShiGanKeYing,
     FLYING_STAR_CHARTS_YANG,
     FLYING_STAR_CHARTS_YIN,
     calculateFlyingStars
@@ -1183,6 +1184,7 @@ function runPatternStructureTest() {
                 charts++;
                 const items = detectPatterns(chart);
                 for (const f of items) {
+                    t.ok(['格局', '十干克應'].includes(f.類), datetime + ' 類別無效：' + f.類);
                     t.ok(typeof f.格 === 'string' && f.格.length > 0, datetime + ' 判定缺少格名');
                     t.ok(VALID_JIXIONG.includes(f.吉凶), datetime + ' 吉凶值無效：' + f.吉凶);
                     t.ok(f.宮 === null || PALACES.includes(f.宮), datetime + ' 宮位無效：' + f.宮);
@@ -1192,7 +1194,8 @@ function runPatternStructureTest() {
                     }
                 }
                 if (items.some(f => f.格 === '五不遇時')) wuBuYu++;
-                if (items.some(f => f.格 === '伏吟')) fuYin++;
+                // 限定盤面層級的伏吟：十干克應的戊戊格典籍亦名伏吟，但那是逐宮判定
+                if (items.some(f => f.類 === '格局' && f.格 === '伏吟')) fuYin++;
             }
         }
     }
@@ -1372,6 +1375,120 @@ function runJieLuKongWangTest() {
            t.errors.slice(0, 5));
 }
 
+/**
+ * 十干克應（81 格）
+ *
+ * 本表由《旨歸》卷五與《秘笈大全》〈十干剋應訣〉建成，《法竅》之異名另行收錄。
+ * 最重要的一項驗證是拿《統宗》〈奇門四十格〉來對——統宗未參與建表，其中十則
+ * 屬十干克應者可作為完全獨立的外部基準。
+ */
+
+/** 《奇門遁甲統宗》〈奇門四十格〉中屬十干克應的十則 */
+const TONGZONG_FORTY = [
+    { 格: '戊丙', 名: '青龍返首', 原文: '龍回首　甲值符加地盤丙奇' },
+    { 格: '丙戊', 名: '飛鳥跌穴', 原文: '鳥跌穴　丙奇加地盤甲值符' },
+    { 格: '乙辛', 名: '青龍逃走', 原文: '龍逃走　乙奇遇辛' },
+    { 格: '辛乙', 名: '白虎猖狂', 原文: '虎猖狂　辛遇乙奇' },
+    { 格: '丁癸', 名: '朱雀投江', 原文: '雀投江　丁奇見癸' },
+    { 格: '庚癸', 名: '大格', 原文: '大格　庚臨六癸' },
+    { 格: '庚己', 名: '刑格', 原文: '刑格　庚臨六己' },
+    { 格: '庚壬', 名: '小格', 原文: '小格　庚臨壬' },
+    { 格: '庚丙', 名: '太白入熒', 原文: '太白入熒　六庚加丙奇' },
+    { 格: '庚戊', 名: '太白天乙伏宮', 原文: '伏宮　庚臨值符' }
+];
+
+function runShiGanKeYingTest() {
+    const t = createAsserter();
+    const GAN9 = ['乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+    const VALID = ['吉', '凶', '中性'];
+
+    // 表格完整性：九干相加共 81 格，甲不上盤故不列
+    const seen = new Set();
+    let good = 0, bad = 0, neutral = 0;
+    for (const top of GAN9) {
+        for (const bottom of GAN9) {
+            const chart = { 天盤: [top], 地盤: [bottom] };
+            // 藉判定器本身取值，避免測試直接依賴內部表
+            const found = detectShiGanKeYing({
+                天盤: [top, '', '', '', '', '', '', '', ''],
+                地盤: [bottom, '', '', '', '', '', '', '', '']
+            });
+            t.equal(found.length, 1, `${top}加${bottom} 應有一則判定`);
+            if (!found.length) continue;
+            const item = found[0];
+            seen.add(top + bottom);
+            t.ok(typeof item.格 === 'string' && item.格.length >= 2,
+                 `${top}加${bottom} 格名應為兩字以上，實得 ${item.格}`);
+            t.equal(item.類, '十干克應', `${top}加${bottom} 類別`);
+            t.ok(VALID.includes(item.吉凶), `${top}加${bottom} 吉凶值無效：${item.吉凶}`);
+            t.equal(item.出處.length, 2, `${top}加${bottom} 應載旨歸與秘笈兩處出處`);
+            if (item.吉凶 === '吉') good++; else if (item.吉凶 === '凶') bad++; else neutral++;
+        }
+    }
+    t.equal(seen.size, 81, '九干相加應為 81 格');
+    t.ok(good > 0 && bad > 0 && neutral > 0, '三種吉凶取值皆應出現');
+
+    // 甲不上盤，故表中不應有甲
+    for (const other of GAN9.concat(['甲'])) {
+        for (const pair of [['甲', other], [other, '甲']]) {
+            const found = detectShiGanKeYing({
+                天盤: [pair[0], '', '', '', '', '', '', '', ''],
+                地盤: [pair[1], '', '', '', '', '', '', '', '']
+            });
+            t.equal(found.length, 0, `${pair[0]}加${pair[1]} 不應在表中（甲不上盤）`);
+        }
+    }
+
+    record(`十干克應：81 格完整（吉 ${good}、凶 ${bad}、中性 ${neutral}），甲不入表`, t.errors.slice(0, 5));
+}
+
+/** 與《統宗》〈奇門四十格〉交叉驗證——統宗未參與建表 */
+function runTongzongFortyTest() {
+    const t = createAsserter();
+    for (const c of TONGZONG_FORTY) {
+        const [top, bottom] = [...c.格];
+        const found = detectShiGanKeYing({
+            天盤: [top, '', '', '', '', '', '', '', ''],
+            地盤: [bottom, '', '', '', '', '', '', '', '']
+        });
+        t.equal(found.length, 1, `${c.格} 應有判定`);
+        if (!found.length) continue;
+        t.equal(found[0].格, c.名, `${c.格}（統宗：${c.原文}）`);
+    }
+    record(`《統宗》〈奇門四十格〉中十則十干克應與本表相符`, t.errors);
+}
+
+/** 實際盤面：每盤九宮各得一格，中宮因天地盤同干必為同干相加 */
+function runKeYingOnChartsTest() {
+    const t = createAsserter();
+    const ALL_SHI = Object.values(SIX_XUNS).flat();
+    let charts = 0, findings = 0, withAlt = 0;
+
+    for (const yinYang of ['陽', '陰']) {
+        for (let ju = 1; ju <= 9; ju++) {
+            for (const shi of ALL_SHI) {
+                const chart = buildChart(shi, ju, yinYang);
+                const items = detectShiGanKeYing(chart);
+                charts++;
+                findings += items.length;
+                t.equal(items.length, 9, `${yinYang}${ju}局${shi}時 應九宮各一格`);
+                // 中宮天地盤恆同干（rotateMapping 保留中宮），故必為同干相加
+                const center = items.find(f => f.宮 === '中');
+                t.ok(!!center, '中宮應有判定');
+                if (center) {
+                    t.equal(chart['天盤'][4], chart['地盤'][4], '中宮天地盤應同干');
+                }
+                for (const f of items) if (f.異名) withAlt++;
+            }
+        }
+    }
+    t.equal(charts, 1080, '盤面總數');
+    t.equal(findings, 9720, '判定總數應為 1080 × 9');
+    t.ok(withAlt > 0, '應有帶異名者');
+
+    record(`十干克應於 ${charts} 張盤共 ${findings} 則，其中 ${withAlt} 則帶法竅異名`, t.errors.slice(0, 5));
+}
+
 // ============================================================================
 // 第四部分：輸入驗證
 // ============================================================================
@@ -1543,6 +1660,9 @@ function runAllTests() {
     runSanQiRuMuTest();
     runSanDunTest();
     runJieLuKongWangTest();
+    runShiGanKeYingTest();
+    runTongzongFortyTest();
+    runKeYingOnChartsTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);
