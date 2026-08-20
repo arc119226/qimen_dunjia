@@ -60,7 +60,7 @@ node
 ```bash
 node
 > import { generateQimenChart, chartToObject } from './index.js'
-> const result = generateQimenChart('test', ['甲辰', '丙寅', '戊午', '庚申', 5, '陽'])
+> const result = generateQimenChart({ 年柱: '甲辰', 月柱: '丙寅', 日柱: '戊午', 時柱: '庚申', 局數: 5, 陰陽: '陽' })
 > const obj = chartToObject(result)
 ```
 
@@ -162,7 +162,9 @@ and must not be regenerated from program output without re-checking them by hand
 
 ## Data Flow Example
 
-Input: `generateQimenChart('2024010112', ['甲辰', '丙寅', '戊午', '庚申', 5, '陽'])`
+Input: `generateQimenChart({ 年柱: '甲辰', 月柱: '丙寅', 日柱: '戊午', 時柱: '庚申', 局數: 5, 陰陽: '陽' })`
+
+The legacy positional form `generateQimenChart(id, [...])` still works — `normalizeChartInput()` accepts both. The `id` was never used in the computation.
 
 1. Extract time pillar: '庚申'
 2. Calculate Xun Shou: '庚申' is the 7th of the 甲寅 decade, so Xun Shou is '甲寅' (fly step 6)

@@ -222,11 +222,15 @@ console.log(`${result['節氣']} ${result['三元']} ${result['陰陽']}遁${res
 ```javascript
 import { generateQimenChart, chartToObject, chartToJSON } from './index.js';
 
-// 輸入參數：[年柱, 月柱, 日柱, 時柱, 局數, 陰陽]
-const data = ['甲辰', '丙寅', '戊午', '庚申', 5, '陽'];
-
-// 生成盤局（第一個參數為識別碼，可為任意字串）
-const chart = generateQimenChart('my-chart-001', data);
+// 以具名物件提供四柱與局數
+const chart = generateQimenChart({
+    年柱: '甲辰',
+    月柱: '丙寅',
+    日柱: '戊午',
+    時柱: '庚申',
+    局數: 5,
+    陰陽: '陽'
+});
 
 // 轉換為物件格式
 const obj = chartToObject(chart);
@@ -323,18 +327,27 @@ console.log(`${obj['節氣']} ${obj['三元']} ${obj['陰陽']}遁${obj['局數'
 
 ### 主函數
 
-#### `generateQimenChart(id, data)`
+#### `generateQimenChart(pillars)`
 
 生成完整的奇門遁甲盤局。需手動提供四柱和局數。
 
-**參數：**
-- `id` (string)：盤局識別碼
-- `data` (array)：`[年柱, 月柱, 日柱, 時柱, 局數, 陰陽]`
-  - 年柱、月柱、日柱、時柱：干支字串，如 `'甲子'`
-  - 局數：1-9 的整數
-  - 陰陽：`'陽'` 或 `'陰'`
+**參數：** `pillars` (object)
+- `年柱`、`月柱`、`日柱`、`時柱`：干支字串，如 `'甲子'`
+- `局數`：1-9 的整數
+- `陰陽`：`'陽'` 或 `'陰'`
 
 **返回：** Map 物件，包含完整盤局資訊
+
+```javascript
+generateQimenChart({
+    年柱: '甲辰', 月柱: '丙寅', 日柱: '戊午', 時柱: '庚申',
+    局數: 5, 陰陽: '陽'
+});
+```
+
+**舊式簽名**：`generateQimenChart(id, [年柱, 月柱, 日柱, 時柱, 局數, 陰陽])` 仍可使用，
+但不建議 —— 其中的 `id` 從未參與運算，而位置陣列在日柱與時柱寫反時不會報錯，
+只會安靜地產出另一張盤。
 
 #### `chartToObject(chart)`
 

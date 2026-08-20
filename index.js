@@ -130,6 +130,9 @@ export {
     // 八門
     getOriginalDoors,
     getZhiShiDoor,
+    getZhiShiTargetIndex,
+    isZhiShiInCenter,
+    isZhiFuInCenter,
     calculateEightDoors,
     
     // 九星

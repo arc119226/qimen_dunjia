@@ -483,9 +483,9 @@ const App = (function() {
             { key: '旬首', val: chart.旬首 },
             { key: '符首', val: chart.符首 },
             { key: '值符', val: chart.值符 },
-            { key: '值符落宮', val: chart.值符落宮 },
+            { key: '值符落宮', val: chart.值符落宮 + (chart.值符入中 ? '（入中）' : '') },
             { key: '值使', val: chart.值使 },
-            { key: '值使落宮', val: chart.值使落宮 },
+            { key: '值使落宮', val: chart.值使落宮 + (chart.值使入中 ? '（入中）' : '') },
             { key: '飛步', val: chart.飛步 },
             { key: '天禽寄宮', val: chart.天禽寄宮 }
         ]);

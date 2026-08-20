@@ -148,7 +148,7 @@ function printGrid(name, array) {
 const chartTestCases = [
     {
         name: '陽局測試 - 局數5（時干庚）',
-        input: ['甲辰', '丙寅', '戊午', '庚申', 5, '陽'],
+        input: { 年柱: '甲辰', 月柱: '丙寅', 日柱: '戊午', 時柱: '庚申', 局數: 5, 陰陽: '陽' },
         expected: {
             旬首: '甲寅', 符首: '癸', 飛步: 6,
             值符: '天蓬', 值符落宮: '兌',
@@ -162,7 +162,7 @@ const chartTestCases = [
     },
     {
         name: '陰局測試 - 局數3（時干辛，陰遁逆飛）',
-        input: ['癸卯', '乙丑', '丁巳', '辛亥', 3, '陰'],
+        input: { 年柱: '癸卯', 月柱: '乙丑', 日柱: '丁巳', 時柱: '辛亥', 局數: 3, 陰陽: '陰' },
         expected: {
             旬首: '甲辰', 符首: '壬', 飛步: 7,
             值符: '天任', 值符落宮: '離',
@@ -176,7 +176,7 @@ const chartTestCases = [
     },
     {
         name: '甲遁測試 - 時干為甲（應以符首辛代之）',
-        input: ['甲子', '丙寅', '戊辰', '甲午', 7, '陽'],
+        input: { 年柱: '甲子', 月柱: '丙寅', 日柱: '戊辰', 時柱: '甲午', 局數: 7, 陰陽: '陽' },
         expected: {
             旬首: '甲午', 符首: '辛', 飛步: 0,
             值符: '天蓬', 值符落宮: '坎',
@@ -191,7 +191,7 @@ const chartTestCases = [
     },
     {
         name: '陽局測試 - 局數1（時干壬落中宮，中宮寄坤回歸測試）',
-        input: ['乙丑', '丁卯', '己未', '壬戌', 1, '陽'],
+        input: { 年柱: '乙丑', 月柱: '丁卯', 日柱: '己未', 時柱: '壬戌', 局數: 1, 陰陽: '陽' },
         expected: {
             旬首: '甲寅', 符首: '癸', 飛步: 8,
             值符: '天心', 值符落宮: '坤',   // 舊版誤報為「中」
@@ -205,7 +205,7 @@ const chartTestCases = [
     },
     {
         name: '陰局測試 - 局數9（飛步9，值使繞滿九宮回到符首宮）',
-        input: ['丙寅', '庚午', '壬申', '癸酉', 9, '陰'],
+        input: { 年柱: '丙寅', 月柱: '庚午', 日柱: '壬申', 時柱: '癸酉', 局數: 9, 陰陽: '陰' },
         expected: {
             旬首: '甲子', 符首: '戊', 飛步: 9,
             值符: '天英', 值符落宮: '巽',
@@ -224,7 +224,7 @@ function runChartTest(testCase) {
     let obj = null;
 
     try {
-        obj = chartToObject(generateQimenChart('test', testCase.input));
+        obj = chartToObject(generateQimenChart(testCase.input));
     } catch (error) {
         record(testCase.name, ['拋出例外：' + error.message]);
         return;
@@ -539,8 +539,15 @@ const PALACE_NUMBERS = { 巽: 4, 離: 9, 坤: 2, 震: 3, 中: 5, 兌: 7, 艮: 8,
 const palaceIndexOf = number => LUOSHU_NUMBERS.indexOf(number);
 const wrap9 = x => ((x - 1) % 9 + 9) % 9 + 1;
 
+/** 以新式具名物件建立盤局；年月日柱不影響盤面，統一填甲子 */
+function buildChart(時柱, 局數, 陰陽) {
+    return chartToObject(generateQimenChart({
+        年柱: '甲子', 月柱: '甲子', 日柱: '甲子', 時柱, 局數, 陰陽
+    }));
+}
+
 function classicChart(shi, ju, yinYang) {
-    return chartToObject(generateQimenChart('classic', ['甲子', '甲子', '甲子', shi, ju, yinYang]));
+    return buildChart(shi, ju, yinYang);
 }
 
 /** 三元步進：陽遁每元 -3、陰遁每元 +3（模九）。兩處已知異文皆違反此規則 */
@@ -687,15 +694,15 @@ function runYingjingZhiShiTest() {
     const t = createAsserter();
     const palaceNumber = gua => ({ 巽:4, 離:9, 坤:2, 震:3, 中:5, 兌:7, 艮:8, 坎:1, 乾:6 })[gua];
     const zhiShiAt = (shi, ju, yinYang) =>
-        palaceNumber(chartToObject(generateQimenChart('yj', ['甲子','甲子','甲子', shi, ju, yinYang]))['值使落宮']);
+        palaceNumber(buildChart(shi, ju, yinYang)['值使落宮']);
 
     // 〈釋天乙直使起宮異門〉冬至後陽使起一宮休門；夏至後陰使起九宮景門
     t.ok(JIEQI_JUSHU['冬至'].yang && JIEQI_JUSHU['冬至'].ju[0] === 1, '冬至上元為陽遁一局');
     t.ok(!JIEQI_JUSHU['夏至'].yang && JIEQI_JUSHU['夏至'].ju[0] === 9, '夏至上元為陰遁九局');
-    const dongzhi = chartToObject(generateQimenChart('yj', ['甲子','甲子','甲子','甲子', 1, '陽']));
+    const dongzhi = buildChart('甲子', 1, '陽');
     t.equal(dongzhi['值使'], '休門', '冬至上元甲子時值使');
     t.equal(zhiShiAt('甲子', 1, '陽'), 1, '冬至上元甲子時值使在一宮');
-    const xiazhi = chartToObject(generateQimenChart('yj', ['甲子','甲子','甲子','甲子', 9, '陰']));
+    const xiazhi = buildChart('甲子', 9, '陰');
     t.equal(xiazhi['值使'], '景門', '夏至上元甲子時值使');
     t.equal(zhiShiAt('甲子', 9, '陰'), 9, '夏至上元甲子時值使在九宮');
 
@@ -734,7 +741,7 @@ function runFuYinTest() {
     for (const yinYang of ['陽', '陰']) {
         for (let ju = 1; ju <= 9; ju++) {
             for (const shi of ['甲子', '甲戌', '甲申', '甲午', '甲辰', '甲寅']) {
-                const o = chartToObject(generateQimenChart('yj', ['甲子','甲子','甲子', shi, ju, yinYang]));
+                const o = buildChart(shi, ju, yinYang);
                 t.deepEqual(o['天盤'], o['地盤'], `${yinYang}${ju}局${shi}時應為伏吟`);
                 count++;
             }
@@ -786,17 +793,26 @@ function runZhiguiCaseTest() {
 
     let checked = 0;
     for (const c of ZHIGUI_CASES) {
-        const o = chartToObject(generateQimenChart('zg', ['甲子','甲子','甲子', c.shi, c.ju, c.yinYang]));
+        const o = buildChart(c.shi, c.ju, c.yinYang);
         const label = `${c.yinYang}${c.ju}局${c.shi}時`;
         if (c.fu) {
             t.ok(expect(c.fu, o['值符落宮'], c.zhongAsKun),
                  `${label} 值符落宮：原文 ${c.fu}，專案 ${o['值符落宮']}`);
             checked++;
+            // 原文說值符泊中者，值符入中旗標必須為真
+            if (c.fu === '中') {
+                t.equal(o['值符入中'], true, `${label} 原文謂值符泊中，值符入中應為 true`);
+                checked++;
+            }
         }
         if (c.use) {
             t.ok(expect(c.use, o['值使落宮'], c.zhongAsKun),
                  `${label} 值使落宮：原文 ${c.use}，專案 ${o['值使落宮']}`);
             checked++;
+            if (c.use === '中') {
+                t.equal(o['值使入中'], true, `${label} 原文謂值使泊中，值使入中應為 true`);
+                checked++;
+            }
         }
     }
     record(`《旨歸》卷三十八占驗課 ${ZHIGUI_CASES.length} 課共 ${checked} 項落宮敘述`, t.errors);
@@ -865,8 +881,7 @@ function runMijiTableTest() {
  */
 function runFaqiaoFuYinTest() {
     const t = createAsserter();
-    const build = (shi, ju, yinYang) =>
-        chartToObject(generateQimenChart('fq', ['甲子','甲子','甲子', shi, ju, yinYang]));
+    const build = buildChart;
 
     let starCount = 0, doorCount = 0;
     for (const yinYang of ['陽', '陰']) {
@@ -923,6 +938,88 @@ function runFaqiaoGuXuTest() {
 }
 
 // ============================================================================
+// 第三部分之五：API 形狀與中宮旗標
+// ============================================================================
+
+/**
+ * generateQimenChart 支援兩種輸入形式，兩者必須完全等價。
+ *
+ * 具名物件為建議形式：位置陣列不會在日柱時柱寫反時報錯，只會安靜地產出另一張盤。
+ * 舊式簽名的第一個參數（標識字串）從未參與運算，保留僅為相容。
+ */
+function runApiShapeTest() {
+    const t = createAsserter();
+    const SAMPLES = [
+        ['甲辰', '丙寅', '戊午', '庚申', 5, '陽'],
+        ['癸卯', '乙丑', '丁巳', '辛亥', 3, '陰'],
+        ['甲子', '丙寅', '戊辰', '甲午', 7, '陽']
+    ];
+    for (const [年柱, 月柱, 日柱, 時柱, 局數, 陰陽] of SAMPLES) {
+        const byObject = chartToObject(generateQimenChart({ 年柱, 月柱, 日柱, 時柱, 局數, 陰陽 }));
+        const byLegacy = chartToObject(generateQimenChart('legacy-label', [年柱, 月柱, 日柱, 時柱, 局數, 陰陽]));
+        t.deepEqual(byLegacy, byObject, `${時柱}時 兩種輸入形式應等價`);
+    }
+    // 缺欄位或型別錯誤時要有明確訊息
+    for (const bad of [undefined, null, 42, '只有字串']) {
+        try {
+            generateQimenChart(bad);
+            t.errors.push(`輸入 ${JSON.stringify(bad)} 應拋出錯誤`);
+        } catch (error) {
+            t.ok(error.message.includes('格式'), '錯誤訊息應提及格式，實際：' + error.message);
+        }
+    }
+    record('API 形狀：具名物件與舊式位置陣列等價', t.errors);
+}
+
+/**
+ * 值符入中／值使入中
+ *
+ * 中宮無門無方位，落宮一律寄坤回報，因此「在五宮」這個狀態從落宮欄位看不出來。
+ * 但典籍以此斷事（《景祐符應經》「凡直使在五宮之時，利客不利主」、
+ * 《奇門旨歸》「中五為半陰半陽之宮，只中副榜」並記錄應驗），故另立旗標。
+ */
+function runCenterFlagTest() {
+    const t = createAsserter();
+    const ALL_SHI = Object.values(SIX_XUNS).flat();
+
+    let total = 0, fuCount = 0, shiCount = 0, bothCount = 0;
+    for (const yinYang of ['陽', '陰']) {
+        for (let ju = 1; ju <= 9; ju++) {
+            for (const shi of ALL_SHI) {
+                const o = buildChart(shi, ju, yinYang);
+                total++;
+                if (o['值符入中']) {
+                    fuCount++;
+                    t.equal(o['值符落宮'], '坤', `${yinYang}${ju}局${shi}時 值符入中時落宮應寄坤`);
+                }
+                if (o['值使入中']) {
+                    shiCount++;
+                    t.equal(o['值使落宮'], '坤', `${yinYang}${ju}局${shi}時 值使入中時落宮應寄坤`);
+                }
+                if (o['值符入中'] && o['值使入中']) bothCount++;
+            }
+        }
+    }
+    // 18 局中有 12 局的中宮放六儀，每局六旬中有一旬的符首落中宮
+    t.equal(total, 1080, '盤面總數');
+    t.equal(fuCount, 120, '值符入中的盤數');
+    t.equal(shiCount, 120, '值使入中的盤數');
+    t.equal(bothCount, 28, '兩者同時發生的盤數');
+
+    // 《景祐符應經》：陽遁一局自一宮起，歷五時至戊辰在中宮
+    const yingjing = buildChart('戊辰', 1, '陽');
+    t.equal(yingjing['值使入中'], true, '景祐例（陽一局戊辰時）值使應入中');
+    t.equal(yingjing['值使落宮'], '坤', '同例落宮仍寄坤');
+
+    // 《元靈經》例二：陰遁八局辛未時，時干辛在中宮，原文「天任加中」
+    const yuanling = buildChart('辛未', 8, '陰');
+    t.equal(yuanling['值符入中'], true, '元靈經例二（陰八局辛未時）值符應入中');
+    t.equal(yuanling['值符'], '天任', '同例值符仍為天任');
+
+    record(`中宮旗標：${total} 種盤中值符入中 ${fuCount} 例、值使入中 ${shiCount} 例`, t.errors.slice(0, 5));
+}
+
+// ============================================================================
 // 第四部分：輸入驗證
 // ============================================================================
 
@@ -969,7 +1066,8 @@ const pillarValidationCases = [
 function runPillarValidationTest(testCase) {
     const t = createAsserter();
     try {
-        generateQimenChart('test', testCase.input);
+        // 此區刻意沿用舊式 (label, 陣列) 簽名，一併涵蓋相容路徑
+        generateQimenChart('legacy', testCase.input);
         t.errors.push('應該拋出錯誤但沒有（會產出一張看似完整、實則無意義的盤）');
     } catch (error) {
         t.ok(
@@ -1019,9 +1117,10 @@ function runConsistencyTest() {
     const datetime = '2024011510';
 
     const obj1 = chartToObject(generateChartByDatetime(datetime));
-    const obj2 = chartToObject(generateQimenChart(datetime, [
-        obj1['年柱'], obj1['月柱'], obj1['日柱'], obj1['時柱'], obj1['局數'], obj1['陰陽']
-    ]));
+    const obj2 = chartToObject(generateQimenChart({
+        年柱: obj1['年柱'], 月柱: obj1['月柱'], 日柱: obj1['日柱'],
+        時柱: obj1['時柱'], 局數: obj1['局數'], 陰陽: obj1['陰陽']
+    }));
 
     const scalarFields = ['年柱', '月柱', '日柱', '時柱', '陰陽', '局數',
                           '旬首', '符首', '值符', '值使', '值符落宮', '值使落宮', '飛步'];
@@ -1078,6 +1177,10 @@ function runAllTests() {
     runMijiTableTest();
     runFaqiaoFuYinTest();
     runFaqiaoGuXuTest();
+
+    section('第三部分之五：API 形狀與中宮旗標');
+    runApiShapeTest();
+    runCenterFlagTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);

@@ -165,6 +165,63 @@ export function getZhiShiDoor(fuShou, diPan) {
 }
 
 /**
+ * 計算值使門飛抵的宮位（未經中宮替代）
+ *
+ * 值使自符首宮起飛，陽局順飛、陰局逆飛，步數為該時辰在旬中的序數。
+ * 飛布軌跡含中宮，故回傳值可能是中宮——《景祐遁甲符應經》〈釋二遁直符合於中宮〉：
+ * 「初辰起，在一宮，歷五時，至戊辰在中宮」，中宮確為飛行途中的一站。
+ *
+ * 步數超過九宮數時取模，故旬中第十時回到起點，
+ * 即〈釋二遁踰於五七歸於九一〉所謂「起於一，終於九，歸於一」。
+ *
+ * @param {boolean} isYang - 是否為陽局
+ * @param {number} flyStep - 飛布步數（0-9）
+ * @param {string} fuShou - 符首
+ * @param {Array<string>} diPan - 地盤配置
+ * @returns {number} 值使落宮索引（未替代，可能為中宮）
+ */
+export function getZhiShiTargetIndex(isYang, flyStep, fuShou, diPan) {
+    const startIndex = diPan.indexOf(fuShou);
+    const flyIndex = isYang ? FLY_PATH.DOOR_YANG : FLY_PATH.DOOR_YIN;
+    const putSequence = generatePutSequence(flyIndex, startIndex);
+    return putSequence[flyStep % flyIndex.length];
+}
+
+/**
+ * 判斷值使是否飛抵中宮
+ *
+ * 中宮無門無方位，本專案依《統宗》《寶鑑》「中五合於坤二」寄坤回報落宮，
+ * 因此「值使在五宮」這個狀態無法從落宮欄位看出來。但典籍以此斷事：
+ *   《景祐符應經》〈釋陰陽二遁〉：「凡直使在五宮之時，利客不利主。」
+ *   《奇門旨歸》卷三十八：「值使簾官泊中…但恐中五為半陰半陽之宮，只中副榜」（記錄應驗）
+ * 故另立此旗標，供格局判斷使用。
+ *
+ * @param {boolean} isYang - 是否為陽局
+ * @param {number} flyStep - 飛布步數（0-9）
+ * @param {string} fuShou - 符首
+ * @param {Array<string>} diPan - 地盤配置
+ * @returns {boolean} 值使是否飛抵中宮
+ */
+export function isZhiShiInCenter(isYang, flyStep, fuShou, diPan) {
+    return getZhiShiTargetIndex(isYang, flyStep, fuShou, diPan) === PALACE.ZHONG;
+}
+
+/**
+ * 判斷值符是否飛入中宮
+ *
+ * 值符隨時干移宮，時干落中宮時值符即入中。與 isZhiShiInCenter 同理，
+ * 落宮欄位因寄坤而看不出此狀態。
+ *   《奇門旨歸》卷三十八：「值符泊中客也…值使泊坎、我也，受中宮土克」
+ *
+ * @param {string} tianGan - 當前時干（已處理甲遁）
+ * @param {Array<string>} diPan - 地盤配置
+ * @returns {boolean} 值符是否飛入中宮
+ */
+export function isZhiFuInCenter(tianGan, diPan) {
+    return diPan.indexOf(tianGan) === PALACE.ZHONG;
+}
+
+/**
  * 計算八門飛布
  * 
  * 八門飛布的運算分為兩步：
@@ -179,21 +236,10 @@ export function getZhiShiDoor(fuShou, diPan) {
  * @returns {Array<string>} 八門飛布後的九宮分布
  */
 export function calculateEightDoors(isYang, zhiShiDoor, flyStep, fuShou, diPan) {
-    // 確定符首在地盤上的位置作為飛布起點
-    const startIndex = diPan.indexOf(fuShou);
-    
-    // 選擇飛布軌跡（陽局順飛、陰局逆飛）
-    const flyIndex = isYang ? FLY_PATH.DOOR_YANG : FLY_PATH.DOOR_YIN;
-    
-    // 處理飛布步數超過九宮數量的情況
-    const normalizedFlyStep = flyStep % flyIndex.length;
-    
-    // 生成放置順序
-    const putSequence = generatePutSequence(flyIndex, startIndex);
-    
-    // 計算值使門應落入的宮位
-    let zhiShiTargetIndex = putSequence[normalizedFlyStep];
-    zhiShiTargetIndex = normalizeZhongPalace(zhiShiTargetIndex);
+    // 計算值使門飛抵的宮位，再處理中宮替代
+    const zhiShiTargetIndex = normalizeZhongPalace(
+        getZhiShiTargetIndex(isYang, flyStep, fuShou, diPan)
+    );
     
     // 從值使門目標宮位開始，沿順時針軌跡安排八門
     const doorPutSequence = generatePutSequence(FLY_PATH.CLOCKWISE, zhiShiTargetIndex);
@@ -486,6 +532,9 @@ export default {
     calculateTianPan,
     getOriginalDoors,
     getZhiShiDoor,
+    getZhiShiTargetIndex,
+    isZhiShiInCenter,
+    isZhiFuInCenter,
     calculateEightDoors,
     getOriginalStars,
     getZhiFuStar,

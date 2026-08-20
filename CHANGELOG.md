@@ -60,6 +60,12 @@ Code review 修復版。修正兩個會產生錯誤結果的缺陷，並補強�
   `年孤虛`…（統宗逐支規則，孤與虛各一個方位）。
 
 ### Added
+- **`值符入中`／`值使入中`（boolean）**：中宮無門無方位，落宮一律寄坤回報，
+  因此「在五宮」這個狀態從落宮欄位看不出來。但典籍以此斷事——《景祐遁甲符應經》
+  「凡直使在五宮之時，利客不利主」、《奇門旨歸》卷三十八「中五為半陰半陽之宮，
+  只中副榜」並記錄應驗——故另立旗標。各影響 1080 種盤中的 120 種（11.1%），
+  其中 28 種同時發生。配套新增 `getZhiShiTargetIndex()`、`isZhiShiInCenter()`、
+  `isZhiFuInCenter()`。
 - `JIEQI_ALIAS`：二十四節氣簡繁別名表（僅 5 個節氣存在差異）
 - `EARTHLY_BRANCHES`、`ZHI_DIRECTIONS`：十二地支與其二十四方位
 - `XUN_TO_KONGWANG_ZHI`：六旬空亡地支（空亡方位表由此推導，並有測試反推驗證）
@@ -73,6 +79,12 @@ Code review 修復版。修正兩個會產生錯誤結果的缺陷，並補強�
 - GitHub Actions CI：Node 20/22 執行測試與建置
 
 ### Changed
+- **`generateQimenChart` 改用具名物件輸入**：
+  `generateQimenChart({ 年柱, 月柱, 日柱, 時柱, 局數, 陰陽 })`。
+  舊式 `generateQimenChart(id, [年柱, 月柱, 日柱, 時柱, 局數, 陰陽])` 仍可使用
+  （`normalizeChartInput()` 兩種都吃），但不建議：其中的 `id` 從未參與運算、
+  也不出現在結果中，而位置陣列在日柱與時柱寫反時不會報錯，只會安靜地產出另一張盤。
+  `generateChartFromSolar()` 未使用的 `label` 參數一併移除。
 - **`index.html` 改用 `dist/qimen.standalone.min.js`**，刪除自帶的 360 行引擎副本
   與 jsdelivr CDN 依賴。網頁與函式庫從此保證使用同一份計算邏輯，且可完全離線使用。
 - **測試套件重寫**（21 → 42 個測試）。舊版盤局測試只要不拋例外就算通過，

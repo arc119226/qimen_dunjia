@@ -8,7 +8,7 @@
  * 4. 整合所有結果並輸出完整盤局
  * 
  * 使用方式：
- * const result = generateQimenChart(dateTimeString, [年柱, 月柱, 日柱, 時柱, 局數, 陰陽]);
+ * const result = generateQimenChart({ 年柱, 月柱, 日柱, 時柱, 局數, 陰陽 });
  */
 
 import { Solar } from 'lunar-javascript';
@@ -33,6 +33,8 @@ import {
     calculateTianPan,
     getOriginalDoors,
     getZhiShiDoor,
+    isZhiShiInCenter,
+    isZhiFuInCenter,
     calculateEightDoors,
     getOriginalStars,
     getZhiFuStar,
@@ -45,8 +47,36 @@ import {
 } from './calculations.js';
 
 // ============================================================================
-// 輸入參數驗證
+// 輸入正規化與驗證
 // ============================================================================
+
+/** 四柱物件的鍵名順序，同時也是舊式位置陣列的順序 */
+const PILLAR_KEYS = ['年柱', '月柱', '日柱', '時柱', '局數', '陰陽'];
+
+/**
+ * 將呼叫端的輸入正規化為內部使用的位置陣列
+ *
+ * 支援兩種形式：
+ * - 具名物件（建議）：generateQimenChart({ 年柱, 月柱, 日柱, 時柱, 局數, 陰陽 })
+ * - 位置陣列（舊式）：generateQimenChart(label, [年柱, 月柱, 日柱, 時柱, 局數, 陰陽])
+ *
+ * 舊式的第一個參數從未被使用過——它既不參與運算，也不出現在結果中。
+ * 位置陣列還有個實際風險：日柱與時柱寫反不會報錯，只會安靜地產出另一張盤。
+ *
+ * @param {Object|string|Array} first - 四柱物件，或（舊式）標識字串
+ * @param {Array} [second] - （舊式）四柱位置陣列
+ * @returns {Array} 內部使用的位置陣列
+ */
+function normalizeChartInput(first, second) {
+    if (Array.isArray(second)) return second;   // 舊式 (label, data)
+    if (Array.isArray(first)) return first;     // 直接傳陣列
+    if (first && typeof first === 'object') {
+        return PILLAR_KEYS.map(key => first[key]);
+    }
+    throw new Error(
+        '輸入格式錯誤：請傳入 { 年柱, 月柱, 日柱, 時柱, 局數, 陰陽 } 物件'
+    );
+}
 
 /**
  * 驗證輸入參數
@@ -135,20 +165,32 @@ function calculatePillarVoids(pillars) {
 
 /**
  * 生成奇門遁甲盤局
- * 
- * 此函數是整套系統的入口點，接收時間參數並輸出完整的奇門盤局。
- * 
- * @param {string} dateTimeString - 日期時間字串（用於標識，如「2024010112」）
- * @param {Array} data - 輸入資料 [年柱, 月柱, 日柱, 時柱, 局數, 陰陽]
+ *
+ * 此函數是整套系統的入口點，接收四柱與局數並輸出完整的奇門盤局。
+ *
+ * @param {Object} pillars - 四柱與局數
+ * @param {string} pillars.年柱 - 年柱干支
+ * @param {string} pillars.月柱 - 月柱干支
+ * @param {string} pillars.日柱 - 日柱干支
+ * @param {string} pillars.時柱 - 時柱干支
+ * @param {number} pillars.局數 - 局數 1-9
+ * @param {string} pillars.陰陽 - 「陽」或「陰」
  * @returns {Map} 完整的盤局結果
- * 
+ *
  * @example
+ * const result = generateQimenChart({
+ *     年柱: '甲辰', 月柱: '丙寅', 日柱: '戊午', 時柱: '庚申',
+ *     局數: 5, 陰陽: '陽'
+ * });
+ *
+ * @example <caption>舊式簽名仍可使用，但不建議</caption>
  * const result = generateQimenChart('2024010112', ['甲辰', '丙寅', '戊午', '庚申', 5, '陽']);
  */
-export function generateQimenChart(dateTimeString, data) {
-    // 1. 參數驗證
+export function generateQimenChart(pillars, legacyData) {
+    // 1. 輸入正規化與驗證
+    const data = normalizeChartInput(pillars, legacyData);
     validateInput(data);
-    
+
     // 2. 解析輸入參數
     const [yearPillar, monthPillar, dayPillar, timePillar, gameNumber, yinYangStr] = data;
     const isYang = yinYangStr === '陽';
@@ -181,6 +223,8 @@ export function generateQimenChart(dateTimeString, data) {
     const flyStep = calculateFlyStep(xunHead, timePillar);
     const eightDoors = calculateEightDoors(isYang, zhiShiDoor, flyStep, fuShou, diPan);
     const zhiShiPosition = getZhiShiPosition(zhiShiDoor, eightDoors);
+    // 落宮因寄坤而看不出「值使在五宮」，另立旗標供格局判斷使用
+    const zhiShiInCenter = isZhiShiInCenter(isYang, flyStep, fuShou, diPan);
     
     // 10. 第四層：九星
     const originalStars = getOriginalStars();
@@ -188,21 +232,22 @@ export function generateQimenChart(dateTimeString, data) {
     const nineStars = calculateNineStars(zhiFuStar, effectiveTimeGan, diPan);
     // 落宮由九星飛布結果反查，確保與「九星」陣列永遠一致
     const zhiFuPosition = getZhiFuStarPosition(zhiFuStar, nineStars);
+    const zhiFuInCenter = isZhiFuInCenter(effectiveTimeGan, diPan);
     const tianQinDirection = getTianQinDirection(nineStars);
     
     // 11. 第五層：八神
     const eightGods = calculateEightGods(isYang, effectiveTimeGan, diPan);
     
     // 12. 計算四柱旬空與孤虛
-    const pillars = [yearPillar, monthPillar, dayPillar, timePillar];
-    const voids = calculatePillarVoids(pillars);
+    const fourPillars = [yearPillar, monthPillar, dayPillar, timePillar];
+    const voids = calculatePillarVoids(fourPillars);
     
     // 13. 封裝結果
     const resultMap = new Map();
     
     // 四柱資訊
     const PILLAR_LABELS = ['年', '月', '日', '時'];
-    pillars.forEach((pillar, index) => {
+    fourPillars.forEach((pillar, index) => {
         const label = PILLAR_LABELS[index];
         resultMap.set(label + '柱', pillar);
         resultMap.set(label + '旬空', voids[index].xunKong);
@@ -220,7 +265,9 @@ export function generateQimenChart(dateTimeString, data) {
     resultMap.set('值使', zhiShiDoor);
     resultMap.set('值符', zhiFuStar);
     resultMap.set('值符落宮', zhiFuPosition);
+    resultMap.set('值符入中', zhiFuInCenter);
     resultMap.set('值使落宮', zhiShiPosition);
+    resultMap.set('值使入中', zhiShiInCenter);
     resultMap.set('飛步', flyStep);
     
     // 基礎盤面
@@ -326,10 +373,9 @@ function parseDatetime(datetime) {
  * 從 Solar 物件生成盤局
  *
  * @param {Solar} solar - lunar-javascript 的 Solar 物件
- * @param {string} label - 盤局標識
  * @returns {Object} 包含盤局和定局資訊的物件
  */
-function generateChartFromSolar(solar, label) {
+function generateChartFromSolar(solar) {
     const lunar = solar.getLunar();
 
     // 取得四柱（使用精確計算，考慮節氣交接）
@@ -341,18 +387,15 @@ function generateChartFromSolar(solar, label) {
     // 拆補法定局
     const juResult = calculateJuByChaiBu(solar, JIEQI_JUSHU, YUAN_NAMES);
 
-    // 組合輸入參數
-    const data = [
-        yearPillar,
-        monthPillar,
-        dayPillar,
-        timePillar,
-        juResult.gameNumber,
-        juResult.yinYang
-    ];
-
     // 生成盤局
-    const chart = generateQimenChart(label, data);
+    const chart = generateQimenChart({
+        年柱: yearPillar,
+        月柱: monthPillar,
+        日柱: dayPillar,
+        時柱: timePillar,
+        局數: juResult.gameNumber,
+        陰陽: juResult.yinYang
+    });
 
     return {
         chart,
@@ -390,7 +433,7 @@ export function generateChartByDatetime(datetime) {
     const solar = Solar.fromYmdHms(year, month, day, hour, 0, 0);
 
     // 生成盤局
-    const { chart, juResult } = generateChartFromSolar(solar, datetime);
+    const { chart, juResult } = generateChartFromSolar(solar);
 
     // 附加定局資訊到結果
     chart.set('節氣', juResult.jieQiName);
