@@ -44,6 +44,7 @@ import {
     DOOR_ELEMENTS,
     detectPatterns,
     detectLiuYiJiXing,
+    detectWuBuYu,
     detectSanQiRuMu,
     detectSanDun,
     detectJieLuKongWang,
@@ -1202,10 +1203,10 @@ function runPatternStructureTest() {
             }
         }
     }
-    // 十干中恰有兩干克日干，故五不遇時應占五分之一
+    // 五不遇時的出現率不在此處斷言——它由 runWuBuYuTableTest 以典籍的十組定式
+    // 全枚舉比對，那才是外部依據。原先那條「應占 20%」的期望值是從被測程式的
+    // 錯誤邏輯推導出來的，在缺陷存在時數學上不可能變紅。此處只留統計供閱讀。
     const ratio = wuBuYu / charts;
-    t.ok(Math.abs(ratio - 0.2) < 0.02,
-         `五不遇時出現率應約為 20%（十干中兩干克日干），實得 ${(ratio * 100).toFixed(1)}%`);
     // 每旬十時中有二時伏吟（旬首甲時與符首本身之時）
     const fuYinRatio = fuYin / charts;
     t.ok(Math.abs(fuYinRatio - 0.2) < 0.03,
@@ -2060,6 +2061,141 @@ function runJuMethodOptionTests() {
 }
 
 // ============================================================================
+// 五不遇時
+// ============================================================================
+
+/**
+ * 《遁甲演義》葛洪注所列的十組干支定式
+ *
+ * 原文：「甲日庚午時，乙日辛巳時，丙日壬辰時，丁日癸卯時，戊日甲寅時，
+ * 己日乙丑時，庚日丙子時，辛日丁酉時，壬日戊申時，癸日己未時，
+ * 乃時干克日干，陽克陽干，陰克陰干，名為主本不和，極凶。」
+ *
+ * 《奇門寶鑒御定》〈釋五不遇時〉以完全不同的方法得到同一組：
+ * 「其法以庚加午逆行，越過戌亥，為時之定局。」下方的
+ * runWuBuYuConstructionTest 直接跑這個構造法，證實兩者相同。
+ *
+ * 這是抄自典籍的黃金值，不得由程式輸出反推。
+ */
+const YANYI_WU_BU_YU = Object.freeze({
+    甲: '庚午', 乙: '辛巳', 丙: '壬辰', 丁: '癸卯', 戊: '甲寅',
+    己: '乙丑', 庚: '丙子', 辛: '丁酉', 壬: '戊申', 癸: '己未'
+});
+
+/** 五鼠遁：日干 → 子時之干。「甲己還加甲，乙庚丙作初，丙辛從戊起，丁壬庚子居，戊癸壬子頭」 */
+const WU_SHU_DUN = Object.freeze({
+    甲: '甲', 己: '甲', 乙: '丙', 庚: '丙', 丙: '戊',
+    辛: '戊', 丁: '庚', 壬: '庚', 戊: '壬', 癸: '壬'
+});
+
+const TEN_GANS = Object.freeze(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']);
+const TWELVE_ZHIS = Object.freeze(['子', '丑', '寅', '卯', '辰', '巳',
+                                   '午', '未', '申', '酉', '戌', '亥']);
+const YANG_GANS = Object.freeze(['甲', '丙', '戊', '庚', '壬']);
+
+/**
+ * 《寶鑒》的構造法必須生成《演義》所列的同一組
+ *
+ * 兩部書用完全不同的方法描述同一件事：《演義》直接列表，《寶鑒》給
+ * 「庚加午逆行，越過戌亥」的作圖法。若兩者相同，這張表就有兩個獨立的書證；
+ * 這一則測試就是在驗那個「獨立」。
+ */
+function runWuBuYuConstructionTest() {
+    const t = createAsserter();
+
+    // 以庚加午，逆行，越過戌亥
+    const built = [];
+    let zhiIndex = TWELVE_ZHIS.indexOf('午');
+    let ganIndex = TEN_GANS.indexOf('庚');
+    for (let guard = 0; guard < 40 && built.length < 10; guard++) {
+        const zhi = TWELVE_ZHIS[zhiIndex];
+        if (zhi !== '戌' && zhi !== '亥') {
+            built.push(TEN_GANS[ganIndex] + zhi);
+            ganIndex = (ganIndex + 1) % 10;
+        }
+        zhiIndex = (zhiIndex + 11) % 12;   // 逆行
+    }
+
+    const listed = TEN_GANS.map(gan => YANYI_WU_BU_YU[gan]);
+    t.deepEqual(built, listed,
+                '《寶鑒》「庚加午逆行，越過戌亥」所生成者，應與《演義》葛洪注所列十組相同');
+
+    record('《寶鑒》構造法與《演義》列表相符（兩書獨立互證）', t.errors);
+}
+
+/**
+ * 十日干 × 十二時支 全一百二十格，逐格比對典籍
+ *
+ * 取代了原先那條「五不遇時應占 20%」的斷言——其期望值是從被測程式的錯誤邏輯
+ * 推導出來的（註解寫「十干中恰有兩干克日干」），正是專案原則 5 所禁止的事，
+ * 而且在缺陷存在時數學上不可能變紅。
+ */
+function runWuBuYuTableTest() {
+    const t = createAsserter();
+    const isYang = gan => YANG_GANS.includes(gan);
+
+    // 《法竅》讀法只論干不論支，較定式多出的兩格
+    const FAQIAO_EXTRA = ['己日乙亥', '庚日丙戌'];
+
+    let dingShiHits = 0;
+    let polarHits = 0;
+    const unexpected = [];
+
+    for (const dayGan of TEN_GANS) {
+        for (let z = 0; z < 12; z++) {
+            const hourGan = TEN_GANS[(TEN_GANS.indexOf(WU_SHU_DUN[dayGan]) + z) % 10];
+            const hourPillar = hourGan + TWELVE_ZHIS[z];
+            const label = dayGan + '日' + hourPillar;
+
+            const items = detectWuBuYu({
+                日柱: dayGan + '子', 時干: hourGan, 時柱: hourPillar
+            });
+            const dingShi = items.filter(f => f.讀法 && f.讀法.startsWith('干支定式'));
+            const polar = items.filter(f => f.讀法 && f.讀法.startsWith('陽克陽'));
+
+            // 干支定式：恰為典籍所列的那一格
+            const shouldDingShi = YANYI_WU_BU_YU[dayGan] === hourPillar;
+            t.equal(dingShi.length, shouldDingShi ? 1 : 0, label + ' 干支定式讀法');
+            if (shouldDingShi) dingShiHits++;
+
+            // 同性讀法：定式十格 ＋ 法竅多出的兩格
+            const shouldPolar = shouldDingShi || FAQIAO_EXTRA.includes(label);
+            t.equal(polar.length, shouldPolar ? 1 : 0, label + ' 陽克陽陰克陰讀法');
+            if (shouldPolar) polarHits++;
+
+            // 同性限制不可省：凡陰陽異性者，兩種讀法都不得觸發
+            if (items.length > 0 && isYang(hourGan) !== isYang(dayGan)) {
+                unexpected.push(label);
+            }
+        }
+    }
+
+    t.equal(dingShiHits, 10, '干支定式在一百二十格中應恰中十格');
+    t.equal(polarHits, 12, '同性讀法應中十二格（定式十格加法竅多出的兩格）');
+    t.equal(unexpected.length, 0,
+            '陰陽異性者不得觸發，實觸發：' + unexpected.slice(0, 5).join('、'));
+
+    // 定式必為同性讀法的子集——若不然，兩者就不是同一件事的寬嚴之別
+    for (const [dayGan, pillar] of Object.entries(YANYI_WU_BU_YU)) {
+        t.equal(isYang(pillar[0]), isYang(dayGan),
+                dayGan + '日' + pillar + '時：定式所列者必為同性相克');
+    }
+
+    // 每則判定都必須帶讀法與出處——異說並列而不代為擇一
+    const sample = detectWuBuYu({ 日柱: '甲子', 時干: '庚', 時柱: '庚午' });
+    t.equal(sample.length, 2, '甲日庚午時：兩種讀法皆應觸發');
+    for (const item of sample) {
+        t.ok(typeof item.讀法 === 'string' && item.讀法.length > 0, '判定應標明讀法');
+        t.ok(item.出處.length === 1 && !!item.出處[0].文, '判定應帶出處原文');
+    }
+    const books = sample.map(f => f.出處[0].書).sort();
+    t.deepEqual(books, ['奇門法竅', '遁甲演義'], '兩種讀法應各有其書');
+
+    record('五不遇時全枚舉（120 格：定式中 ' + dingShiHits + ' 格、同性中 ' + polarHits + ' 格）',
+           truncate(t.errors, 10));
+}
+
+// ============================================================================
 // 基準自陳
 // ============================================================================
 
@@ -2337,6 +2473,10 @@ function runAllTests() {
     runJuMethodDivergenceTest();
     runFuTouInvariantTests();
     runLeapEmergenceTest();
+
+    section('第三部分之七之二：五不遇時');
+    runWuBuYuConstructionTest();
+    runWuBuYuTableTest();
 
     section('第三部分之八：基準自陳');
     runBasisDeclarationTest();

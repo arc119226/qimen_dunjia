@@ -225,6 +225,17 @@ so it is 9×9, not 10×10; every chart yields exactly 9 of these, one per palace
 classics, which is not the same thing as plate-level 伏吟 (天盤 identical to 地盤).
 Always filter by `類` before matching on `格`.
 
+**五不遇時 ships two readings, and the split is about whether 支 counts.** The 煙波釣叟歌
+is *underdetermined* — 「時干來克日干上，甲日須知時忌庚」 gives one example and never says
+same-polarity. The ten-pair 定式 comes from the annotations, and two books reach it by
+**different methods**: 《演義》 (葛洪注) lists them; 《寶鑒》〈釋五不遇時〉 gives a construction
+(「以庚加午逆行，越過戌亥」) that test.js actually runs and checks against the list.
+《寶鑒》 also states the distinction outright: 「順數者，止論其干，故名七殺。逆數者，
+合論其干支，故曰五不遇時。」 So 干支定式 (10 of 120, 1.00/day) and 《法竅》's stem-only
+陽克陽陰克陰 (12 of 120, 1.21/day) are both emitted, differing only at 己日乙亥 and 庚日丙戌.
+Dropping the polarity check yields 24 of 120 and 2.43/day — **no classic lists any of the
+extra twelve**.
+
 The 十干克應 table was built from 《旨歸》卷五 and 《秘笈大全》〈十干剋應訣〉 (which agree
 almost character for character); 《法竅》's separate naming lives in `異名`.
 《統宗》〈奇門四十格〉 was **not** used to build it — its ten 十干克應 entries serve as an
