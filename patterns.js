@@ -44,10 +44,30 @@ import { rotateArrayFromIndex } from './utils.js';
 // ============================================================================
 
 const SOURCES = Object.freeze({
-    法竅_門迫: Object.freeze({
+    法竅_迫制賦: Object.freeze({
+        書: '奇門法竅',
+        篇: '卷一（賦文）',
+        文: '宮制其門不為迫，門制其宮門迫凶。吉門被迫吉減去，凶遇門迫凶更凶。' +
+            '宮若生門則為義，最吉日合門主宮。'
+    }),
+    法竅_迫制註: Object.freeze({
+        書: '奇門法竅',
+        篇: '卷一（賦文之註）',
+        文: '宮迫者，謂開驚兩門臨離宮，火克金也；休門臨坤艮二宮，土克水也；' +
+            '生死兩門臨震巽二宮，木克土也；傷杜兩門臨乾兌二宮，金克木也；' +
+            '景門臨坎宮，水克火也，此宮克門也。凡宮迫門者，為主克客也。' +
+            '門迫者，開驚二門臨震巽二宮，金克木也；休門臨離宮，水克火也；' +
+            '生死二門臨坎宮，土克水也；傷杜二門臨坤艮二宮，木克土也；' +
+            '景門臨乾兌二宮，火克金也，此門克宮也。' +
+            '蓋迫者，逼也，急切受制，或門受制於宮，或宮受制於門，彼此相抗，' +
+            '扼抑不容，故吉門受制，吉則減吉，凶門受制，凶則愈凶矣。' +
+            '凡門克宮者，為客克主也。'
+    }),
+    法竅_論八門迫制: Object.freeze({
         書: '奇門法竅',
         篇: '論八門迫制',
-        文: '宮制其門不為迫，門制其宮門迫凶。吉門被迫吉減去，凶遇門迫凶更凶。'
+        文: '吉門迫制，吉事不成；凶門迫制，凶災尤甚。' +
+            '凶門和義，其凶不凶；吉門和義，其吉益吉。'
     }),
     寶鑑_擊刑: Object.freeze({
         書: '奇門寶鑑御定',
@@ -222,10 +242,54 @@ export function detectFanYin(chart) {
 }
 
 /**
- * 門迫：門克宮
+ * 門與宮的五行關係
  *
- * 《法竅》：門制其宮則為迫，宮制其門不為迫。此處只產出「迫」，
- * 宮克門者不列（原文明言不為迫）。
+ * 專案原先只輸出門克宮一種，並在此註解「宮克門者不列（原文明言不為迫）」，
+ * 所據為《法竅》卷一賦文「宮制其門不為迫」。但**同一部書、同一段的下一行註**
+ * 就給出了完整的兩張表並重新定義「迫」：
+ *
+ *   「宮迫者，謂開驚兩門臨離宮，火克金也…此宮克門也。凡宮迫門者，為主克客也。
+ *     門迫者，開驚二門臨震巽二宮，金克木也…此門克宮也。
+ *     蓋迫者，逼也，急切受制，或門受制於宮，或宮受制於門，彼此相抗，扼抑不容，
+ *     故吉門受制，吉則減吉，凶門受制，凶則愈凶矣。凡門克宮者，為客克主也。」
+ *
+ * 賦文說「宮制其門不為迫」，它自己的註卻名之為「宮迫」——這是書內張力，
+ * 依專案原則呈現而不代為裁決：兩個方向都輸出，各自標明關係與主客。
+ *
+ * 賦文同句另有「宮若生門則為義」，故宮生門一併輸出。
+ * 〈論八門迫制〉（法竅卷八，非卷一賦文所在）稱之為「和義」，
+ * 且該篇通篇用不分方向的「迫制」：「吉門迫制，吉事不成；凶門迫制，凶災尤甚。
+ * 凶門和義，其凶不凶；吉門和義，其吉益吉。」
+ *
+ * 兩張表各十三對，由五行相克推導後與《法竅》明列者逐對核對（見 test.js）。
+ */
+const MEN_GONG_RELATIONS = Object.freeze([
+    {
+        判: (doorElement, palaceElement) => overcomes(doorElement, palaceElement),
+        格: '門迫', 吉凶: '凶', 關係: '門克宮', 主客: '客克主',
+        述: (door, doorElement, palace, palaceElement) =>
+            `${door}（${doorElement}）克${palace}宮（${palaceElement}），門克宮，為客克主`
+    },
+    {
+        判: (doorElement, palaceElement) => overcomes(palaceElement, doorElement),
+        格: '宮迫', 吉凶: '凶', 關係: '宮克門', 主客: '主克客',
+        述: (door, doorElement, palace, palaceElement) =>
+            `${palace}宮（${palaceElement}）克${door}（${doorElement}），宮克門，為主克客`
+    },
+    {
+        判: (doorElement, palaceElement) => ELEMENT_GENERATES[palaceElement] === doorElement,
+        格: '和義', 吉凶: '吉', 關係: '宮生門', 主客: '主生客',
+        述: (door, doorElement, palace, palaceElement) =>
+            `${palace}宮（${palaceElement}）生${door}（${doorElement}），宮生門，為主生客`
+    }
+]);
+
+/**
+ * 門迫、宮迫與和義
+ *
+ * 三者互斥（五行關係只能居其一），故每宮至多產出一則。
+ * 門生宮與比和不產出判定——《法竅》〈論門宮生克〉雖亦論門生宮（客生主），
+ * 但未立格名，依專案慣例不代為命名。
  *
  * @param {Object} chart - 盤局物件
  * @returns {Array<Object>} 判定結果
@@ -236,13 +300,23 @@ export function detectMenPo(chart) {
         if (!door) return;
         const doorElement = DOOR_ELEMENTS[door];
         const palaceElement = PALACE_ELEMENTS[index];
-        if (!overcomes(doorElement, palaceElement)) return;
-        results.push(finding('門迫', '凶', palaceName(index),
-            `${door}（${doorElement}）臨${palaceName(index)}宮（${palaceElement}），門克宮`,
-            SOURCES.法竅_門迫));
+        const palace = palaceName(index);
+
+        for (const rule of MEN_GONG_RELATIONS) {
+            if (!rule.判(doorElement, palaceElement)) continue;
+            const item = finding(rule.格, rule.吉凶, palace,
+                rule.述(door, doorElement, palace, palaceElement),
+                SOURCES.法竅_迫制註);
+            item.關係 = rule.關係;
+            item.主客 = rule.主客;
+            if (rule.格 === '和義') item.異名 = [{ 名: '義', 書: '奇門法竅', 篇: '卷一（賦文）' }];
+            results.push(item);
+            break;
+        }
     });
     return results;
 }
+
 
 /**
  * 五不遇時：時干克日干

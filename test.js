@@ -45,6 +45,8 @@ import {
     detectPatterns,
     detectLiuYiJiXing,
     detectWuBuYu,
+    detectMenPo,
+    ELEMENT_GENERATES,
     detectSanQiRuMu,
     detectSanDun,
     detectJieLuKongWang,
@@ -1044,7 +1046,7 @@ function runCenterFlagTest() {
  */
 
 /**
- * 《奇門法竅》〈論八門迫制〉逐條列出的門迫與非迫
+ * 《奇門法竅》卷一賦文之註逐條列出的門迫（門克宮）與宮迫（宮克門）
  *
  * 「門迫者，開驚二門臨震巽二宮，金克木也；休門臨離宮，水克火也；
  *   生死二門臨坎宮，土克水也；傷杜二門臨坤艮二宮，木克土也；
@@ -1091,7 +1093,7 @@ function runMenPoTableTest() {
     t.deepEqual(sortPairs(derivedGongKe), sortPairs(FAQIAO_GONG_KE_MEN), '宮克門（不為迫）的組合');
     t.equal(derivedPo.length, 13, '門迫組合數');
 
-    record('門迫：由五行推導的組合與《法竅》〈論八門迫制〉明列者完全相同', t.errors);
+    record('門迫：由五行推導的組合與《法竅》卷一賦文之註明列者完全相同', t.errors);
 }
 
 /**
@@ -2060,6 +2062,88 @@ function runJuMethodOptionTests() {
     record('定局法選項（預設不變、未知拋錯、盤面一致）', truncate(t.errors, 10));
 }
 
+/**
+ * 門宮關係的三種輸出：門迫、宮迫、和義
+ *
+ * 兩張十三對表都由五行相克推導後與《法竅》卷一賦文之註逐對核對（見上），
+ * 此處驗的是**判定器真的把兩個方向都吐出來了**——專案原先只吐門克宮一半，
+ * 而那一半所據的賦文，其註在下一行就把另一半也命了名。
+ */
+function runMenGongRelationTest() {
+    const t = createAsserter();
+    const palaceOf = gua => LUOSHU_BAGUA.indexOf(gua);
+
+    // 以逐對表直接構造盤面，驗判定器對每一對的輸出
+    const check = (door, gua, 格, 吉凶, 關係, 主客) => {
+        const doors = new Array(9).fill('');
+        doors[palaceOf(gua)] = door;
+        const items = detectMenPo({ 天門: doors });
+        t.equal(items.length, 1, `${door}臨${gua}宮應恰有一則判定`);
+        if (!items.length) return;
+        t.equal(items[0].格, 格, `${door}臨${gua}宮的格`);
+        t.equal(items[0].吉凶, 吉凶, `${door}臨${gua}宮的吉凶`);
+        t.equal(items[0].宮, gua, `${door}臨${gua}宮的宮位`);
+        t.equal(items[0].關係, 關係, `${door}臨${gua}宮的關係`);
+        t.equal(items[0].主客, 主客, `${door}臨${gua}宮的主客`);
+        t.ok(items[0].出處.length === 1 && items[0].出處[0].篇 === '卷一（賦文之註）',
+             `${door}臨${gua}宮應掛賦文之註而非〈論八門迫制〉`);
+    };
+
+    for (const [door, gua] of FAQIAO_MEN_PO) check(door, gua, '門迫', '凶', '門克宮', '客克主');
+    for (const [door, gua] of FAQIAO_GONG_KE_MEN) check(door, gua, '宮迫', '凶', '宮克門', '主克客');
+
+    t.equal(FAQIAO_MEN_PO.length, 13, '門克宮應為十三對');
+    t.equal(FAQIAO_GONG_KE_MEN.length, 13, '宮克門應為十三對');
+
+    // 和義：宮生門。《法竅》卷一賦文「宮若生門則為義」，
+    // 〈論八門迫制〉稱「和義」——「凶門和義，其凶不凶；吉門和義，其吉益吉」
+    const heYi = [];
+    for (const door of Object.keys(DOOR_ELEMENTS)) {
+        for (const gua of LUOSHU_BAGUA) {
+            if (gua === '中') continue;
+            if (ELEMENT_GENERATES[PALACE_ELEMENTS[palaceOf(gua)]] === DOOR_ELEMENTS[door]) {
+                heYi.push([door, gua]);
+            }
+        }
+    }
+    t.ok(heYi.length > 0, '宮生門的組合不應為空');
+    // 和義為吉：《法竅》〈論八門迫制〉「凶門和義，其凶不凶；吉門和義，其吉益吉」
+    for (const [door, gua] of heYi) check(door, gua, '和義', '吉', '宮生門', '主生客');
+
+    // 三者互斥：同一宮不得同時中兩則
+    let multi = 0;
+    for (const door of Object.keys(DOOR_ELEMENTS)) {
+        for (const gua of LUOSHU_BAGUA) {
+            if (gua === '中') continue;
+            const doors = new Array(9).fill('');
+            doors[palaceOf(gua)] = door;
+            if (detectMenPo({ 天門: doors }).length > 1) multi++;
+        }
+    }
+    t.equal(multi, 0, '門迫、宮迫、和義三者互斥，同一宮不得並見');
+
+    // 門生宮與比和不立格名——《法竅》〈論門宮生克〉雖論門生宮（客生主）卻未命名，
+    // 依專案慣例不代為命名
+    let named = 0;
+    for (const door of Object.keys(DOOR_ELEMENTS)) {
+        for (const gua of LUOSHU_BAGUA) {
+            if (gua === '中') continue;
+            const doorElement = DOOR_ELEMENTS[door];
+            const palaceElement = PALACE_ELEMENTS[palaceOf(gua)];
+            const isMenShengGong = ELEMENT_GENERATES[doorElement] === palaceElement;
+            const isSame = doorElement === palaceElement;
+            if (!isMenShengGong && !isSame) continue;
+            const doors = new Array(9).fill('');
+            doors[palaceOf(gua)] = door;
+            if (detectMenPo({ 天門: doors }).length > 0) named++;
+        }
+    }
+    t.equal(named, 0, '門生宮與比和典籍未立格名，不應產出判定');
+
+    record(`門宮關係：門迫 ${FAQIAO_MEN_PO.length} 對、宮迫 ${FAQIAO_GONG_KE_MEN.length} 對、和義 ${heYi.length} 對`,
+           truncate(t.errors, 10));
+}
+
 // ============================================================================
 // 五不遇時
 // ============================================================================
@@ -2473,6 +2557,8 @@ function runAllTests() {
     runJuMethodDivergenceTest();
     runFuTouInvariantTests();
     runLeapEmergenceTest();
+
+    runMenGongRelationTest();
 
     section('第三部分之七之二：五不遇時');
     runWuBuYuConstructionTest();

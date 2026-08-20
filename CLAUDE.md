@@ -225,6 +225,17 @@ so it is 9×9, not 10×10; every chart yields exactly 9 of these, one per palace
 classics, which is not the same thing as plate-level 伏吟 (天盤 identical to 地盤).
 Always filter by `類` before matching on `格`.
 
+**門迫 now emits both directions, plus 和義.** The project used to emit only 門克宮, citing
+《法竅》's 賦文 「宮制其門不為迫」. **The very next line — that 賦文's own 註 — gives two
+13-pair tables and redefines 迫**: 「宮迫者…此宮克門也。凡宮迫門者，為主克客也。門迫者…
+此門克宮也。蓋迫者，逼也…**或門受制於宮，或宮受制於門**」. The 賦文 and its own 註
+disagree; that tension is surfaced, not resolved. Three mutually exclusive outcomes, at most
+one per palace: 門迫 (門克宮, 客克主, 凶, 13 pairs), 宮迫 (宮克門, 主克客, 凶, 13 pairs),
+和義 (宮生門, 主生客, 吉, 12 pairs — from the same 賦文's 「宮若生門則為義」). Each finding
+carries 關係 and 主客. 門生宮 and 比和 get no name because the classics give none.
+The citation was also **misattributed**: 〈論八門迫制〉 is in 卷八 and is direction-neutral;
+the 賦文 and 註 are in 卷一.
+
 **五不遇時 ships two readings, and the split is about whether 支 counts.** The 煙波釣叟歌
 is *underdetermined* — 「時干來克日干上，甲日須知時忌庚」 gives one example and never says
 same-polarity. The ten-pair 定式 comes from the annotations, and two books reach it by
