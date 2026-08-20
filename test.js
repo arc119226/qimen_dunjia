@@ -739,6 +739,93 @@ function runFuYinTest() {
     record(`《景祐符應經》〈釋伏吟〉六甲時天盤等於地盤（${count} 例）`, t.errors.slice(0, 5));
 }
 
+/**
+ * 《奇門旨歸》（清光緒十九年，朱浩文撰）卷三十八〈占驗課〉
+ *
+ * 作者的實戰案例記錄，每課都註明局數、日時與值符值使落宮，
+ * 是外部給定的答案。中宮的處理有流派差異：原文把值符值使停在中宮，
+ * 本專案依統宗、寶鑑「中五合於坤二」寄坤回報，故以 zhongAsKun 標記。
+ *
+ * 「癸酉日庚午時」一課的時柱與日柱不合五鼠遁（癸日午時應為戊午），
+ * 校正為戊午後，原文「符使同泊兌」「癸加戊」三處敘述全部吻合，
+ * 故以校正後的時柱納入。
+ */
+const ZHIGUI_CASES = [
+    { ju: 4, yinYang: '陰', shi: '甲申', fu: '坤', use: '坤' },
+    { ju: 3, yinYang: '陽', shi: '庚辰', fu: '中', use: '坎', zhongAsKun: true },
+    { ju: 2, yinYang: '陽', shi: '辛巳', fu: '中', use: '坎', zhongAsKun: true },
+    { ju: 2, yinYang: '陽', shi: '丙申', fu: '離', use: null },
+    { ju: 8, yinYang: '陽', shi: '乙卯', fu: '兌', use: '中', zhongAsKun: true },
+    { ju: 5, yinYang: '陽', shi: '癸酉', fu: '坎', use: null },
+    { ju: 8, yinYang: '陽', shi: '丙辰', fu: '乾', use: '乾' },
+    { ju: 8, yinYang: '陽', shi: '壬辰', fu: '震', use: null },
+    { ju: 3, yinYang: '陰', shi: '壬申', fu: '艮', use: '巽' },
+    { ju: 7, yinYang: '陽', shi: '乙酉', fu: '乾', use: '坎' },
+    { ju: 7, yinYang: '陽', shi: '戊午', fu: '兌', use: '兌' },
+    { ju: 3, yinYang: '陰', shi: '甲午', fu: '離', use: '離' },
+    { ju: 7, yinYang: '陽', shi: '己巳', fu: null, use: '震' },
+    { ju: 7, yinYang: '陰', shi: '丁酉', fu: '坎', use: '坎' },
+    { ju: 9, yinYang: '陰', shi: '丙戌', fu: '坤', use: '中', zhongAsKun: true },
+    { ju: 4, yinYang: '陽', shi: '乙巳', fu: '震', use: '離' },
+    { ju: 6, yinYang: '陰', shi: '甲辰', fu: '坤', use: '坤' },
+    { ju: 7, yinYang: '陰', shi: '己酉', fu: null, use: '兌' },
+    { ju: 1, yinYang: '陰', shi: '丁卯', fu: null, use: '兌' },
+    { ju: 9, yinYang: '陰', shi: '戊辰', fu: '離', use: '中', zhongAsKun: true },
+    { ju: 8, yinYang: '陽', shi: '辛未', fu: null, use: '乾' },
+    { ju: 3, yinYang: '陰', shi: '丙寅', fu: '中', use: '坎', zhongAsKun: true }
+];
+
+function runZhiguiCaseTest() {
+    const t = createAsserter();
+    const expect = (stated, actual, zhongAsKun) =>
+        stated === actual || (zhongAsKun && stated === '中' && actual === '坤');
+
+    let checked = 0;
+    for (const c of ZHIGUI_CASES) {
+        const o = chartToObject(generateQimenChart('zg', ['甲子','甲子','甲子', c.shi, c.ju, c.yinYang]));
+        const label = `${c.yinYang}${c.ju}局${c.shi}時`;
+        if (c.fu) {
+            t.ok(expect(c.fu, o['值符落宮'], c.zhongAsKun),
+                 `${label} 值符落宮：原文 ${c.fu}，專案 ${o['值符落宮']}`);
+            checked++;
+        }
+        if (c.use) {
+            t.ok(expect(c.use, o['值使落宮'], c.zhongAsKun),
+                 `${label} 值使落宮：原文 ${c.use}，專案 ${o['值使落宮']}`);
+            checked++;
+        }
+    }
+    record(`《旨歸》卷三十八占驗課 ${ZHIGUI_CASES.length} 課共 ${checked} 項落宮敘述`, t.errors);
+}
+
+/**
+ * 五鼠遁／五虎遁：驗證 lunar-javascript 產出的時柱與月柱合乎古法
+ *
+ * 四柱由 lunar-javascript 提供，本專案並未自行推算；此測試把這個外部相依
+ * 綁到《旨歸》卷一所載的規則上，若換版或換套件導致四柱錯誤會立即發現。
+ */
+function runPillarRuleTest() {
+    const t = createAsserter();
+    const GAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+    const ZHI = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+    // 五鼠遁（日起時例）：甲己還加甲，乙庚丙作初，丙辛起戊子，丁壬庚子居，戊癸推壬子
+    const ZI_GAN = { 甲:'甲', 己:'甲', 乙:'丙', 庚:'丙', 丙:'戊', 辛:'戊', 丁:'庚', 壬:'庚', 戊:'壬', 癸:'壬' };
+    // 五虎遁（年起月例）：甲己之年丙作初，乙庚之歲戊為頭，丙辛須向庚寅起，丁壬壬寅順行流，戊癸正月始從甲寅
+    const YIN_GAN = { 甲:'丙', 己:'丙', 乙:'戊', 庚:'戊', 丙:'庚', 辛:'庚', 丁:'壬', 壬:'壬', 戊:'甲', 癸:'甲' };
+
+    let count = 0;
+    for (const datetime of ['2023031507', '2023072114', '2024011523', '2024060900', '2025022809', '2025111119']) {
+        const o = chartToObject(generateChartByDatetime(datetime));
+        const day = o['日柱'], hour = o['時柱'], year = o['年柱'], month = o['月柱'];
+        const hourExpect = GAN[(GAN.indexOf(ZI_GAN[day[0]]) + ZHI.indexOf(hour[1])) % 10] + hour[1];
+        t.equal(hour, hourExpect, datetime + ' 時柱應合五鼠遁');
+        const monthExpect = GAN[(GAN.indexOf(YIN_GAN[year[0]]) + (ZHI.indexOf(month[1]) - 2 + 12) % 12) % 10] + month[1];
+        t.equal(month, monthExpect, datetime + ' 月柱應合五虎遁');
+        count++;
+    }
+    record(`四柱合五鼠遁與五虎遁（${count} 個時刻）`, t.errors);
+}
+
 // ============================================================================
 // 第四部分：輸入驗證
 // ============================================================================
@@ -890,6 +977,8 @@ function runAllTests() {
     runYingjingZhiShiTest();
     runYingjingGodsTest();
     runFuYinTest();
+    runZhiguiCaseTest();
+    runPillarRuleTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);
