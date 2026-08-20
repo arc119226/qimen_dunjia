@@ -72,10 +72,15 @@ export {
     EIGHT_GODS_YANG,
     EIGHT_GODS_YIN,
     
+    // 地支與方位
+    EARTHLY_BRANCHES,
+    ZHI_DIRECTIONS,
+
     // 六甲系統
     XUN_HEADS,
     SIX_XUNS,
     XUN_TO_HEAD,
+    XUN_TO_KONGWANG_ZHI,
     XUN_TO_KONGWANG_DIRECTION,
     
     // 地盤配置
@@ -99,6 +104,9 @@ export {
     getFuShou,
     calculateFlyStep,
     getKongWangDirection,
+    getOppositeZhi,
+    getXunKongWang,
+    getGuXu,
     
     // 天干處理
     resolveJiaHiding,

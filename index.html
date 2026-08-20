@@ -290,7 +290,7 @@
 
             <!-- 孤虛方位 -->
             <div class="panel">
-                <div class="panel-header">四柱空亡</div>
+                <div class="panel-header">四柱旬空與孤虛</div>
                 <div class="panel-body">
                     <div class="data-grid" id="infoKong"></div>
                 </div>
@@ -451,6 +451,16 @@ const App = (function() {
         return (value && value.length) ? value.join('、') : '—';
     }
 
+    /** 旬空：孤與虛各有兩個方位（該旬兩個空亡地支及其對沖） */
+    function formatXunKong(v) {
+        return v ? '孤 ' + formatList(v.孤) + '　虛 ' + formatList(v.虛) : '—';
+    }
+
+    /** 孤虛：統宗逐支推算，孤與虛各一個方位 */
+    function formatGuXu(v) {
+        return v ? '孤 ' + v.孤 + '　虛 ' + v.虛 : '—';
+    }
+
     function renderChart(chart) {
         renderDataGrid('infoBasic', [
             { key: '年柱', val: chart.年柱 },
@@ -480,12 +490,16 @@ const App = (function() {
             { key: '天禽寄宮', val: chart.天禽寄宮 }
         ]);
 
-        // 函式庫的欄位名為「孤虛」，顯示標籤沿用一般習慣稱呼「空亡」
+        // 旬空（旬孤）與孤虛是兩套不同的推算，分別列出
         renderDataGrid('infoKong', [
-            { key: '年空亡', val: formatList(chart.年孤虛) },
-            { key: '月空亡', val: formatList(chart.月孤虛) },
-            { key: '日空亡', val: formatList(chart.日孤虛) },
-            { key: '時空亡', val: formatList(chart.時孤虛) }
+            { key: '年旬空', val: formatXunKong(chart.年旬空) },
+            { key: '月旬空', val: formatXunKong(chart.月旬空) },
+            { key: '日旬空', val: formatXunKong(chart.日旬空) },
+            { key: '時旬空', val: formatXunKong(chart.時旬空) },
+            { key: '年孤虛', val: formatGuXu(chart.年孤虛) },
+            { key: '月孤虛', val: formatGuXu(chart.月孤虛) },
+            { key: '日孤虛', val: formatGuXu(chart.日孤虛) },
+            { key: '時孤虛', val: formatGuXu(chart.時孤虛) }
         ]);
 
         renderCombinedGrid('gridCombined', chart);

@@ -21,7 +21,7 @@ Runs the test suite (42 assertions, ~0.5s) covering:
 - Five-layer golden values for Yang/Yin bureaus, different game numbers, and Jia hiding
 - `generateChartByDatetime` API (datetime parsing, solar terms, Yuan periods)
 - Full-year sweep: all 366 days of 2024 must chart successfully and cover all 24 solar terms
-- Self-consistency: `值符落宮`/`值使落宮` must match the `九星`/`天門` arrays
+- Self-consistency: `值符落宮`/`值使落宮` must match the `九星`/`天門` arrays, and 八神's 值符 must share the palace with the 九星 值符 (required by both 統宗 and 發凡)
 - Input validation (datetime format/calendar validity, four-pillar sexagenary validity)
 - `generateChartNow` API and consistency between the two chart APIs
 
@@ -106,7 +106,11 @@ The system calculates five layers that stack upon the Luoshu 9-palace grid:
 
 **Jia Hiding (甲遁)**: Jia (甲) never appears directly on the plate - it's always represented by its corresponding Fu Shou (符首). This is handled by `resolveJiaHiding()` in qimen.js:162.
 
-**Zhong Palace (中宮)**: Palace 5 (center) has special handling. When an element should go to center, it's often substituted to palace 2 or 8 depending on context. See `ZHONG_SUBSTITUTE` and `normalizeZhongPalace()`.
+**Zhong Palace (中宮)**: Palace 5 (center) has no direction and no door, so anything landing there is substituted to 坤 palace 2 (`ZHONG_SUBSTITUTE`, `normalizeZhongPalace()`). This is not an edge case — **12 of the 18 bureaus place a 六儀 in the center**, so roughly 11% of all charts have 符首 there.
+
+Verified against 《奇門遁甲統宗》〈以旬首取符使法〉: "甲辰在中宮，寄於坤二，天禽為符，死門為使". The project matches: 值符 keeps the name 天禽, 值使 becomes 死門 (坤's door).
+
+**天禽 never moves** in the 九星 array — `rotateMapping` pins it at index 4. It is 寄坤 and travels with 天芮. Therefore `getZhiFuStarPosition()` looks up 天芮 when 值符 is 天禽; reading 天禽's literal array index would report 「中」 and contradict both classics, which require 八神's 值符 to share the palace with the 九星 值符 (統宗〈小值符加大值符法〉, 發凡〈小直符加大直符〉). `天禽寄宮` reports the same palace as an arrow.
 
 **Chai Bu Method (拆補法)**: The system uses the Chai Bu method (not Zhi Run method) for determining game numbers. It measures elapsed time from the exact solar-term **transition instant** (via Julian day, fractional) and divides into three Yuan periods: 上元 = [0, 5) days, 中元 = [5, 10) days, 下元 = 10+ days. `節後天數` is 0-based (the solar-term day itself is `0`).
 
@@ -194,7 +198,7 @@ The test suite validates:
 - Different game numbers (1-9)
 - Jia hiding logic (when time stem is 甲)
 - All five layers produce correct output
-- Four pillars Kong Wang (空亡) calculations
+- 旬空 (per-decade void directions) and 孤虛 (per-branch, 統宗 rule) — these are different concepts, see below
 
 When modifying calculations, always run `npm test` to verify against known-good outputs.
 

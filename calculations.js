@@ -261,19 +261,30 @@ export function getZhiFuPosition(tianGan, diPan) {
 /**
  * 確定值符星落宮
  *
- * 直接從九星飛布結果反查值符星的實際位置，保證與九星陣列永遠自洽。
+ * 從九星飛布結果反查值符星的實際位置，保證與九星陣列自洽。
  * 此作法與 getZhiShiPosition（值使門落宮）對稱。
  *
- * 九星飛布結果必含九星各一次，故 indexOf 不會是 -1。
- * 天禽恆居中宮，當值符為天禽時回傳「中」。
+ * 天禽的特殊處理：
+ * 天禽居中宮而中宮無方位，傳統上寄坤二宮，於轉盤中與天芮同宮。九星飛布的
+ * 結果恆將天禽留在中宮（見 rotateMapping），故值符為天禽時不能直接用它在
+ * 陣列中的位置定落宮，須改取其寄宮之星（天芮）所在。
+ *
+ * 此非任意選擇——兩部經典都要求八神值符與九星值符同宮：
+ *   《奇門遁甲統宗》：「小值符加大值符法：以最上盤之值符加於九星值符所臨之宮」
+ *   《遁甲發凡》：「小直符加大直符。以八詐門之直符，加於九星直符所臨之宮」
+ * 八神值符依時干落宮（見 calculateEightGods），若此處回傳「中」，
+ * 則符首落中宮的盤（18 局中有 12 局，約占全部盤的 11%）必然自相矛盾。
  *
  * @param {string} zhiFuStar - 值符星
  * @param {Array<string>} nineStars - 九星飛布結果
  * @returns {string} 落宮的後天八卦名稱
  */
 export function getZhiFuStarPosition(zhiFuStar, nineStars) {
-    const positionIndex = nineStars.indexOf(zhiFuStar);
-    return LUOSHU_BAGUA[positionIndex];
+    // 中宮之星（天禽）寄於替代宮之星（天芮）
+    const lookupStar = zhiFuStar === QIMEN_STARS[PALACE.ZHONG]
+        ? QIMEN_STARS[ZHONG_SUBSTITUTE]
+        : zhiFuStar;
+    return LUOSHU_BAGUA[nineStars.indexOf(lookupStar)];
 }
 
 /**

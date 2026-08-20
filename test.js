@@ -18,6 +18,17 @@ import {
     JIEQI_JUSHU,
     LUOSHU_BAGUA,
     LUOSHU_NUMBERS,
+    QIMEN_STARS,
+    PALACE,
+    ZHONG_SUBSTITUTE,
+    SIX_XUNS,
+    EARTHLY_BRANCHES,
+    ZHI_DIRECTIONS,
+    XUN_TO_KONGWANG_ZHI,
+    XUN_TO_KONGWANG_DIRECTION,
+    getGuXu,
+    getXunKongWang,
+    getOppositeZhi,
     FLYING_STAR_CHARTS_YANG,
     FLYING_STAR_CHARTS_YIN,
     calculateFlyingStars
@@ -84,14 +95,24 @@ function section(title) {
 }
 
 /**
- * 落宮自洽性：值符／值使的「落宮」必須真的是該星／該門所在的宮位。
+ * 落宮自洽性
  *
- * 舊版 值符落宮 是從時干在「地盤」的位置算的，而九星飛布內部另做過中宮
- * 正規化，兩者在時干落中宮時會矛盾（值符落宮＝中，但該宮的九星不是值符）。
+ * 1. 值符落宮必須真的是值符星所在之宮。天禽居中宮不動、寄坤與天芮同宮，
+ *    故值符為天禽時以天芮定位。
+ * 2. 八神值符必須與九星值符同宮——兩部經典皆明文要求：
+ *    《奇門遁甲統宗》「小值符加大值符法：以最上盤之值符加於九星值符所臨之宮」
+ *    《遁甲發凡》「小直符加大直符。以八詐門之直符，加於九星直符所臨之宮」
+ * 3. 值使落宮必須真的是值使門所在之宮。
  */
 function assertPositionsSelfConsistent(t, obj, prefix) {
-    const starPalace = LUOSHU_BAGUA[obj['九星'].indexOf(obj['值符'])];
-    t.equal(obj['值符落宮'], starPalace, `${prefix}值符落宮應與九星陣列一致`);
+    const zhongStar = QIMEN_STARS[PALACE.ZHONG];              // 天禽
+    const substituteStar = QIMEN_STARS[ZHONG_SUBSTITUTE];     // 天芮
+    const lookupStar = obj['值符'] === zhongStar ? substituteStar : obj['值符'];
+    const starPalace = LUOSHU_BAGUA[obj['九星'].indexOf(lookupStar)];
+    t.equal(obj['值符落宮'], starPalace, `${prefix}值符落宮應與九星陣列一致（天禽寄坤取天芮）`);
+
+    const godPalace = LUOSHU_BAGUA[obj['八神'].indexOf('值符')];
+    t.equal(obj['值符落宮'], godPalace, `${prefix}八神值符應與九星值符同宮`);
 
     const doorPalace = LUOSHU_BAGUA[obj['天門'].indexOf(obj['值使'])];
     t.equal(obj['值使落宮'], doorPalace, `${prefix}值使落宮應與天門陣列一致`);
@@ -440,6 +461,56 @@ function runFlyingStarTest() {
 }
 
 // ============================================================================
+// 第三部分之三：旬空與孤虛
+// ============================================================================
+/**
+ * 依《奇門遁甲統宗》〈孤虛〉與〈年家孤虛方位〉驗證。
+ * 統宗原文：「年月日時俱以前一位空亡為孤，孤沖為虛。如子年亥為孤，巳為虛。」
+ */
+function runVoidTest() {
+    const t = createAsserter();
+
+    // 統宗〈年家孤虛方位〉逐支列出的孤與虛
+    const GU  = '亥子丑寅卯辰巳午未申酉戌'.split('');
+    const XU  = '巳午未申酉戌亥子丑寅卯辰'.split('');
+    EARTHLY_BRANCHES.forEach((zhi, i) => {
+        // 孤虛只取地支推算，天干不參與，故此處天干僅為佔位
+        const result = getGuXu('甲' + zhi);
+        t.equal(result?.孤, ZHI_DIRECTIONS[GU[i]], `${zhi}之孤應為${GU[i]}`);
+        t.equal(result?.虛, ZHI_DIRECTIONS[XU[i]], `${zhi}之虛應為${XU[i]}`);
+    });
+    t.ok(EARTHLY_BRANCHES.every(z => getOppositeZhi(getOppositeZhi(z)) === z), '對沖兩次應回到原支');
+
+    record('孤虛：統宗〈年家孤虛方位〉十二支逐一相符', t.errors);
+}
+
+/** 旬空亡的兩支必須是該旬用不到的兩支，方位須與地支方位表一致 */
+function runXunKongTest() {
+    const t = createAsserter();
+
+    for (const [xunHead, ganzhiList] of Object.entries(SIX_XUNS)) {
+        const used = new Set(ganzhiList.map(gz => gz[1]));
+        const missing = EARTHLY_BRANCHES.filter(z => !used.has(z));
+        t.deepEqual(XUN_TO_KONGWANG_ZHI[xunHead], missing, `${xunHead}旬空亡地支`);
+        t.deepEqual(
+            XUN_TO_KONGWANG_DIRECTION[xunHead],
+            missing.map(z => ZHI_DIRECTIONS[z]),
+            `${xunHead}旬空亡方位`
+        );
+        const xk = getXunKongWang(xunHead);
+        t.deepEqual(xk?.孤, missing.map(z => ZHI_DIRECTIONS[z]), `${xunHead}旬孤`);
+        t.deepEqual(xk?.虛, missing.map(z => ZHI_DIRECTIONS[getOppositeZhi(z)]), `${xunHead}旬虛`);
+    }
+    // 同旬十個干支的旬空相同，但孤虛各不相同（兩者是不同概念）
+    const xunKongs = new Set(SIX_XUNS['甲子'].map(gz => JSON.stringify(getXunKongWang(gz))));
+    const guXus = new Set(SIX_XUNS['甲子'].map(gz => JSON.stringify(getGuXu(gz))));
+    t.ok(xunKongs.size === 1, '同旬十干支的旬空應相同，實得 ' + xunKongs.size + ' 種');
+    t.ok(guXus.size === 10, '同旬十干支的孤虛應逐支不同，實得 ' + guXus.size + ' 種');
+
+    record('旬空：六旬空亡地支與方位可由 SIX_XUNS 完全反推', t.errors);
+}
+
+// ============================================================================
 // 第四部分：輸入驗證
 // ============================================================================
 
@@ -574,6 +645,10 @@ function runAllTests() {
 
     section('第三部分之二：飛星盤');
     runFlyingStarTest();
+
+    section('第三部分之三：旬空與孤虛');
+    runVoidTest();
+    runXunKongTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);

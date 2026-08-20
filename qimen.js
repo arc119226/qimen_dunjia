@@ -17,7 +17,8 @@ import {
     getXunHead,
     getFuShou,
     calculateFlyStep,
-    getKongWangDirection,
+    getXunKongWang,
+    getGuXu,
     resolveJiaHiding,
     extractTianGan
 } from './utils.js';
@@ -107,21 +108,25 @@ function extractFourPillarGans(yearPillar, monthPillar, dayPillar, timePillar) {
 }
 
 /**
- * 計算四柱孤虛方位
- * 
- * @param {string} yearPillar - 年柱
- * @param {string} monthPillar - 月柱
- * @param {string} dayPillar - 日柱
- * @param {string} timePillar - 時柱
- * @returns {Object} 四柱孤虛方位物件
+ * 計算四柱的旬空與孤虛
+ *
+ * 兩者是不同的概念，須分別給出：
+ *
+ * - 旬空：該柱所屬旬的兩個空亡地支之方位（孤），及其對沖方（虛）。
+ *   《奇門遁甲統宗》稱之為「旬孤」。
+ * - 孤虛：統宗〈孤虛〉「年月日時俱以前一位空亡為孤，孤沖為虛。
+ *   如子年亥為孤，巳為虛」——逐支推算，與該柱屬於哪一旬無關。
+ *
+ * 舊版只輸出旬空亡的方位，卻掛上「孤虛」之名，且缺少「虛」。
+ *
+ * @param {Array<string>} pillars - [年柱, 月柱, 日柱, 時柱]
+ * @returns {Array<Object>} 各柱的 { xunKong, guXu }
  */
-function calculateFourPillarKongWang(yearPillar, monthPillar, dayPillar, timePillar) {
-    return {
-        yearKongWang: getKongWangDirection(yearPillar),
-        monthKongWang: getKongWangDirection(monthPillar),
-        dayKongWang: getKongWangDirection(dayPillar),
-        timeKongWang: getKongWangDirection(timePillar)
-    };
+function calculatePillarVoids(pillars) {
+    return pillars.map(pillar => ({
+        xunKong: getXunKongWang(pillar),
+        guXu: getGuXu(pillar)
+    }));
 }
 
 // ============================================================================
@@ -188,22 +193,21 @@ export function generateQimenChart(dateTimeString, data) {
     // 11. 第五層：八神
     const eightGods = calculateEightGods(isYang, effectiveTimeGan, diPan);
     
-    // 12. 計算四柱孤虛
-    const { yearKongWang, monthKongWang, dayKongWang, timeKongWang } = 
-        calculateFourPillarKongWang(yearPillar, monthPillar, dayPillar, timePillar);
+    // 12. 計算四柱旬空與孤虛
+    const pillars = [yearPillar, monthPillar, dayPillar, timePillar];
+    const voids = calculatePillarVoids(pillars);
     
     // 13. 封裝結果
     const resultMap = new Map();
     
     // 四柱資訊
-    resultMap.set('年柱', yearPillar);
-    resultMap.set('年孤虛', yearKongWang);
-    resultMap.set('月柱', monthPillar);
-    resultMap.set('月孤虛', monthKongWang);
-    resultMap.set('日柱', dayPillar);
-    resultMap.set('日孤虛', dayKongWang);
-    resultMap.set('時柱', timePillar);
-    resultMap.set('時孤虛', timeKongWang);
+    const PILLAR_LABELS = ['年', '月', '日', '時'];
+    pillars.forEach((pillar, index) => {
+        const label = PILLAR_LABELS[index];
+        resultMap.set(label + '柱', pillar);
+        resultMap.set(label + '旬空', voids[index].xunKong);
+        resultMap.set(label + '孤虛', voids[index].guXu);
+    });
     resultMap.set('時干', timeGan);
     
     // 局數與陰陽

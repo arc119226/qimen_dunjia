@@ -13,7 +13,10 @@ import {
     SIX_XUNS,
     XUN_HEADS,
     XUN_TO_HEAD,
-    XUN_TO_KONGWANG_DIRECTION
+    XUN_TO_KONGWANG_ZHI,
+    XUN_TO_KONGWANG_DIRECTION,
+    EARTHLY_BRANCHES,
+    ZHI_DIRECTIONS
 } from './constants.js';
 
 // ============================================================================
@@ -191,17 +194,76 @@ export function calculateFlyStep(xunHead, currentTime) {
 }
 
 /**
- * 查詢孤虛方位
- * 
- * 根據干支查詢該時空的孤虛方位
- * 用於「坐孤擊虛」的戰術決策
- * 
+ * 查詢旬空亡方位
+ *
+ * 根據干支所屬之旬，回傳該旬兩個空亡地支的方位。
+ *
+ * 注意：此為「旬孤」之孤方，並非《奇門遁甲統宗》定義的年月日時孤虛
+ * （後者為逐支推算，見 getGuXu）。
+ *
  * @param {string} ganzhi - 干支
- * @returns {Array<string>|undefined} 孤虛方位陣列
+ * @returns {Array<string>|undefined} 兩個空亡方位
  */
 export function getKongWangDirection(ganzhi) {
     const xunHead = getXunHead(ganzhi);
     return xunHead ? XUN_TO_KONGWANG_DIRECTION[xunHead] : undefined;
+}
+
+/**
+ * 取得地支的對沖地支
+ *
+ * 十二地支兩兩相對，相距六位即為沖。
+ *
+ * @param {string} zhi - 地支
+ * @returns {string|undefined} 對沖地支
+ */
+export function getOppositeZhi(zhi) {
+    const index = EARTHLY_BRANCHES.indexOf(zhi);
+    return index === -1 ? undefined : EARTHLY_BRANCHES[(index + 6) % 12];
+}
+
+/**
+ * 查詢旬孤虛
+ *
+ * 以干支所屬之旬的兩個空亡地支為孤，其對沖方為虛。
+ * 統宗〈孤虛〉：「五百人以上用旬孤」，可見旬孤與年月日時孤虛並列而不同。
+ *
+ * @param {string} ganzhi - 干支
+ * @returns {{孤: Array<string>, 虛: Array<string>}|undefined} 旬孤虛方位
+ */
+export function getXunKongWang(ganzhi) {
+    const xunHead = getXunHead(ganzhi);
+    if (!xunHead) return undefined;
+    const kongZhi = XUN_TO_KONGWANG_ZHI[xunHead];
+    return {
+        孤: kongZhi.map(zhi => ZHI_DIRECTIONS[zhi]),
+        虛: kongZhi.map(zhi => ZHI_DIRECTIONS[getOppositeZhi(zhi)])
+    };
+}
+
+/**
+ * 查詢孤虛方位（年月日時）
+ *
+ * 《奇門遁甲統宗》〈孤虛〉：「年月日時俱以前一位空亡為孤，孤沖為虛。
+ * 如子年亥為孤，巳為虛。」——以該柱地支的前一位為孤，孤之對沖為虛。
+ * 此規則逐支推算，與該柱屬於哪一旬無關。
+ *
+ * 用於「背孤擊虛」的戰術決策。統宗並註明用法分級：
+ * 萬人以上用年孤、千人以上用月孤、五百人以上用旬孤、
+ * 百人以上用日孤、數十人以上用時孤。
+ *
+ * @param {string} ganzhi - 干支
+ * @returns {{孤: string, 虛: string}|undefined} 孤虛方位
+ */
+export function getGuXu(ganzhi) {
+    const zhi = extractDiZhi(ganzhi);
+    const index = EARTHLY_BRANCHES.indexOf(zhi);
+    if (index === -1) return undefined;
+    const guZhi = EARTHLY_BRANCHES[(index + 11) % 12];
+    return {
+        孤: ZHI_DIRECTIONS[guZhi],
+        虛: ZHI_DIRECTIONS[getOppositeZhi(guZhi)]
+    };
 }
 
 // ============================================================================
@@ -252,6 +314,9 @@ export default {
     getFuShou,
     calculateFlyStep,
     getKongWangDirection,
+    getOppositeZhi,
+    getXunKongWang,
+    getGuXu,
     resolveJiaHiding,
     extractTianGan,
     extractDiZhi
