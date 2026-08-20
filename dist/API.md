@@ -106,6 +106,26 @@ const chart = Qimen.generateQimenChart({
 
 舊式簽名 `generateQimenChart(id, [...])` 仍可使用，但 `id` 從未參與運算，不建議。
 
+### 格局判斷
+
+#### `detectPatterns(chart)`
+
+判斷盤局中出現的格局。參數為 `chartToObject()` 的結果。
+
+```javascript
+const chart = Qimen.chartToObject(Qimen.generateChartByDatetime('2024011510'));
+Qimen.detectPatterns(chart);
+// [ { 格: '門迫', 吉凶: '凶', 宮: '坤',
+//     細節: '傷門（木）臨坤宮（土），門克宮',
+//     出處: [ { 書: '奇門法竅', 篇: '論八門迫制', 文: '宮制其門不為迫…' } ] }, … ]
+```
+
+每則判定含 `格`、`吉凶`、`宮`（全盤性者為 `null`）、`細節`、`出處`；
+典籍有異說者另含 `讀法`，兩種讀法並列而不代為擇一。
+
+已實作：伏吟、反吟、門迫、五不遇時、三奇得使、六儀擊刑。
+個別判定器亦可單獨呼叫（`detectMenPo`、`detectLiuYiJiXing` 等）。
+
 ### 格式轉換
 
 #### `chartToObject(chart)`

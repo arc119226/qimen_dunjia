@@ -72,6 +72,13 @@ export {
     EIGHT_GODS_YANG,
     EIGHT_GODS_YIN,
     
+    // 五行
+    ELEMENT_OVERCOMES,
+    PALACE_ELEMENTS,
+    DOOR_ELEMENTS,
+    STAR_ELEMENTS,
+    GAN_ELEMENTS,
+
     // 地支與方位
     EARTHLY_BRANCHES,
     ZHI_DIRECTIONS,
@@ -153,6 +160,17 @@ export {
     // 拆補法定局
     calculateJuByChaiBu
 } from './calculations.js';
+
+// 匯出格局判斷
+export {
+    detectPatterns,
+    detectFuYin,
+    detectFanYin,
+    detectMenPo,
+    detectWuBuYu,
+    detectSanQiDeShi,
+    detectLiuYiJiXing
+} from './patterns.js';
 
 // 匯出主控函數
 export {

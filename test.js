@@ -38,6 +38,11 @@ import {
     getDiPan,
     getFuShou,
     getXunHead,
+    ELEMENT_OVERCOMES,
+    PALACE_ELEMENTS,
+    DOOR_ELEMENTS,
+    detectPatterns,
+    detectLiuYiJiXing,
     FLYING_STAR_CHARTS_YANG,
     FLYING_STAR_CHARTS_YIN,
     calculateFlyingStars
@@ -1020,6 +1025,188 @@ function runCenterFlagTest() {
 }
 
 // ============================================================================
+// 第三部分之六：格局判斷
+// ============================================================================
+/**
+ * patterns.js 是純函數，只吃 chartToObject() 的結果，不依賴排盤怎麼算出來。
+ * 測試分三類：
+ *   1. 與典籍明列的表核對（門迫）
+ *   2. 與典籍的實戰案例核對（《旨歸》卷三十八明寫格名的三課）
+ *   3. 結構與統計性質（每則判定都要有出處；異說須並列）
+ */
+
+/**
+ * 《奇門法竅》〈論八門迫制〉逐條列出的門迫與非迫
+ *
+ * 「門迫者，開驚二門臨震巽二宮，金克木也；休門臨離宮，水克火也；
+ *   生死二門臨坎宮，土克水也；傷杜二門臨坤艮二宮，木克土也；
+ *   景門臨乾兌二宮，火克金也，此門克宮也。」
+ *
+ * 「宮迫者，謂開驚兩門臨離宮，火克金也；休門臨坤艮二宮，土克水也；
+ *   生死兩門臨震巽二宮，木克土也；傷杜兩門臨乾兌二宮，金克木也；
+ *   景門臨坎宮，水克火也，此宮克門也。」（原文明言此不為迫）
+ */
+const FAQIAO_MEN_PO = [
+    ['開門', '震'], ['開門', '巽'], ['驚門', '震'], ['驚門', '巽'],
+    ['休門', '離'],
+    ['生門', '坎'], ['死門', '坎'],
+    ['傷門', '坤'], ['傷門', '艮'], ['杜門', '坤'], ['杜門', '艮'],
+    ['景門', '乾'], ['景門', '兌']
+];
+
+const FAQIAO_GONG_KE_MEN = [
+    ['開門', '離'], ['驚門', '離'],
+    ['休門', '坤'], ['休門', '艮'],
+    ['生門', '震'], ['生門', '巽'], ['死門', '震'], ['死門', '巽'],
+    ['傷門', '乾'], ['傷門', '兌'], ['杜門', '乾'], ['杜門', '兌'],
+    ['景門', '坎']
+];
+
+/** 由五行相克推導門迫，與《法竅》明列的表逐對核對 */
+function runMenPoTableTest() {
+    const t = createAsserter();
+    const palaceOf = gua => LUOSHU_BAGUA.indexOf(gua);
+
+    const derivedPo = [];
+    const derivedGongKe = [];
+    for (const door of Object.keys(DOOR_ELEMENTS)) {
+        for (const gua of LUOSHU_BAGUA) {
+            if (gua === '中') continue;
+            const doorElement = DOOR_ELEMENTS[door];
+            const palaceElement = PALACE_ELEMENTS[palaceOf(gua)];
+            if (ELEMENT_OVERCOMES[doorElement] === palaceElement) derivedPo.push([door, gua]);
+            if (ELEMENT_OVERCOMES[palaceElement] === doorElement) derivedGongKe.push([door, gua]);
+        }
+    }
+    const sortPairs = pairs => pairs.map(p => p.join('')).sort();
+    t.deepEqual(sortPairs(derivedPo), sortPairs(FAQIAO_MEN_PO), '門克宮（迫）的組合');
+    t.deepEqual(sortPairs(derivedGongKe), sortPairs(FAQIAO_GONG_KE_MEN), '宮克門（不為迫）的組合');
+    t.equal(derivedPo.length, 13, '門迫組合數');
+
+    record('門迫：由五行推導的組合與《法竅》〈論八門迫制〉明列者完全相同', t.errors);
+}
+
+/**
+ * 《奇門旨歸》卷三十八占驗課中明寫格名的三課
+ *
+ * 這是最強的一類測試——格名由典籍的作者自己標出，非本專案自產。
+ */
+const ZHIGUI_PATTERN_CASES = [
+    {
+        名: '五不遇時',
+        課: '陽八局 丙午日壬辰時',
+        原文: '此時幹克日乾為五不遇，奇門最忌之格',
+        日柱: '丙午', 時柱: '壬辰', 局數: 8, 陰陽: '陽',
+        宮: null
+    },
+    {
+        名: '門迫',
+        課: '陽七局 甲戌日己巳時',
+        原文: '值使同驚門泊震宮為門迫',
+        日柱: '甲戌', 時柱: '己巳', 局數: 7, 陰陽: '陽',
+        宮: '震'
+    },
+    {
+        名: '伏吟',
+        課: '陰三局 丙午日甲午時',
+        原文: '此課初看伏吟，亦似不動之象',
+        日柱: '丙午', 時柱: '甲午', 局數: 3, 陰陽: '陰',
+        宮: null
+    }
+];
+
+function runZhiguiPatternTest() {
+    const t = createAsserter();
+    for (const c of ZHIGUI_PATTERN_CASES) {
+        const chart = chartToObject(generateQimenChart({
+            年柱: '甲子', 月柱: '甲子', 日柱: c.日柱, 時柱: c.時柱,
+            局數: c.局數, 陰陽: c.陰陽
+        }));
+        const found = detectPatterns(chart).filter(f => f.格 === c.名);
+        t.ok(found.length > 0, `${c.課} 應判出「${c.名}」（原文：${c.原文}）`);
+        if (found.length > 0 && c.宮) {
+            t.ok(found.some(f => f.宮 === c.宮),
+                 `${c.課} 的${c.名}應落於${c.宮}宮，實得 ${found.map(f => f.宮).join('、')}`);
+        }
+    }
+    record(`《旨歸》占驗課明寫格名的 ${ZHIGUI_PATTERN_CASES.length} 課皆能判出`, t.errors);
+}
+
+/** 六儀擊刑的兩種讀法：嚴式必為寬式的子集，且出現率相差近四倍 */
+function runJiXingReadingTest() {
+    const t = createAsserter();
+    const ALL_SHI = Object.values(SIX_XUNS).flat();
+    let total = 0, loose = 0, strict = 0, strictNotLoose = 0;
+
+    for (const yinYang of ['陽', '陰']) {
+        for (let ju = 1; ju <= 9; ju++) {
+            for (const shi of ALL_SHI) {
+                const chart = buildChart(shi, ju, yinYang);
+                const items = detectLiuYiJiXing(chart);
+                const hasLoose = items.some(f => f.讀法 && f.讀法.startsWith('寬式'));
+                const hasStrict = items.some(f => f.讀法 && f.讀法.startsWith('嚴式'));
+                total++;
+                if (hasLoose) loose++;
+                if (hasStrict) strict++;
+                if (hasStrict && !hasLoose) strictNotLoose++;
+                // 每則都必須標明讀法
+                for (const f of items) {
+                    t.ok(!!f.讀法, `${yinYang}${ju}局${shi}時 六儀擊刑的判定應標明讀法`);
+                }
+            }
+        }
+    }
+    t.equal(total, 1080, '盤面總數');
+    t.equal(strictNotLoose, 0, '嚴式必為寬式的子集');
+    t.ok(loose > strict * 2, `寬式應遠多於嚴式，實得寬式 ${loose}、嚴式 ${strict}`);
+
+    record(`六儀擊刑異說並列：寬式 ${loose} 例、嚴式 ${strict} 例（嚴式為寬式子集）`, t.errors.slice(0, 5));
+}
+
+/** 判定結果的結構完整性，以及兩項可獨立驗算的出現率 */
+function runPatternStructureTest() {
+    const t = createAsserter();
+    const VALID_JIXIONG = ['吉', '凶', '中性'];
+    const PALACES = LUOSHU_BAGUA;
+
+    let charts = 0, wuBuYu = 0, fuYin = 0;
+    for (let month = 1; month <= 12; month++) {
+        const daysInMonth = new Date(2024, month, 0).getDate();
+        for (let day = 1; day <= daysInMonth; day += 3) {
+            for (const hour of [1, 7, 13, 19]) {
+                const datetime = '2024' + String(month).padStart(2, '0')
+                    + String(day).padStart(2, '0') + String(hour).padStart(2, '0');
+                const chart = chartToObject(generateChartByDatetime(datetime));
+                charts++;
+                const items = detectPatterns(chart);
+                for (const f of items) {
+                    t.ok(typeof f.格 === 'string' && f.格.length > 0, datetime + ' 判定缺少格名');
+                    t.ok(VALID_JIXIONG.includes(f.吉凶), datetime + ' 吉凶值無效：' + f.吉凶);
+                    t.ok(f.宮 === null || PALACES.includes(f.宮), datetime + ' 宮位無效：' + f.宮);
+                    t.ok(Array.isArray(f.出處) && f.出處.length > 0, datetime + ' 判定缺少出處');
+                    for (const src of f.出處) {
+                        t.ok(!!src.書 && !!src.篇 && !!src.文, datetime + ' 出處欄位不完整');
+                    }
+                }
+                if (items.some(f => f.格 === '五不遇時')) wuBuYu++;
+                if (items.some(f => f.格 === '伏吟')) fuYin++;
+            }
+        }
+    }
+    // 十干中恰有兩干克日干，故五不遇時應占五分之一
+    const ratio = wuBuYu / charts;
+    t.ok(Math.abs(ratio - 0.2) < 0.02,
+         `五不遇時出現率應約為 20%（十干中兩干克日干），實得 ${(ratio * 100).toFixed(1)}%`);
+    // 每旬十時中有二時伏吟（旬首甲時與符首本身之時）
+    const fuYinRatio = fuYin / charts;
+    t.ok(Math.abs(fuYinRatio - 0.2) < 0.03,
+         `伏吟出現率應約為 20%（每旬十時中二時），實得 ${(fuYinRatio * 100).toFixed(1)}%`);
+
+    record(`格局判定結構完整性（${charts} 張盤），五不遇時 ${(ratio * 100).toFixed(1)}%、伏吟 ${(fuYinRatio * 100).toFixed(1)}%`,
+           t.errors.slice(0, 5));
+}
+
+// ============================================================================
 // 第四部分：輸入驗證
 // ============================================================================
 
@@ -1181,6 +1368,12 @@ function runAllTests() {
     section('第三部分之五：API 形狀與中宮旗標');
     runApiShapeTest();
     runCenterFlagTest();
+
+    section('第三部分之六：格局判斷');
+    runMenPoTableTest();
+    runZhiguiPatternTest();
+    runJiXingReadingTest();
+    runPatternStructureTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);

@@ -73,14 +73,21 @@ The system follows a **layered architecture** with clear separation of concerns:
 ```
 index.js (Unified API)
     ↓
-qimen.js (Main Controller)
-    ↓
-├── constants.js (Lookup Tables)
-├── utils.js (Array Rotation & Queries)
-└── calculations.js (Five-Layer Calculations)
-    ↓
-lunar-javascript (npm package)
+├── qimen.js (Main Controller — builds the chart)
+│      ↓
+│   ├── constants.js (Lookup Tables)
+│   ├── utils.js (Array Rotation & Queries)
+│   └── calculations.js (Five-Layer Calculations)
+│          ↓
+│       lunar-javascript (npm package)
+│
+└── patterns.js (Pattern Judgment — reads a finished chart)
 ```
+
+**patterns.js sits beside qimen.js, not under it.** Every detector is a pure
+function of `chartToObject()` output and never touches the calculation modules,
+so a chart produced by a different school (飛盤 instead of 轉盤, say) can be judged
+by the same detectors as long as the output shape matches.
 
 ### Core Calculation Flow
 
@@ -155,6 +162,20 @@ Note this is deliberately instant-based, not calendar-day-based: the Yuan bounda
 - Solar to lunar calendar conversion
 - Calculating four pillars (year/month/day/hour stems-branches)
 - Finding current solar term and days since term
+
+**patterns.js**: Pattern judgment (格局). Reads a finished chart, returns findings.
+Four rules govern this module:
+1. Pure functions over `chartToObject()` output — no dependency on how the chart was built.
+2. **Every finding carries its source** (書 / 篇 / 原文). The classics disagree on
+   conditions often enough that an unsourced rule is unresolvable later.
+3. **Variant readings are emitted side by side**, tagged with `讀法`, never silently
+   picked. 六儀擊刑 is the live example: 寬式 (any 六儀 in its 刑宮) fires ~4× more
+   often than 嚴式 (only the 值符's 儀).
+4. Derive what can be derived, then check the derivation against a table the classics
+   list explicitly. 門迫 is derived from 五行 relations and asserted against
+   《法竅》〈論八門迫制〉's 13 explicit pairs.
+
+Currently implemented: 伏吟、反吟、門迫、五不遇時、三奇得使、六儀擊刑.
 
 **test.js**: Assertion-driven test suite (42 tests). Every case compares against expected
 values; the golden values in `chartTestCases` were hand-verified against traditional rules

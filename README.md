@@ -239,6 +239,45 @@ const obj = chartToObject(chart);
 const json = chartToJSON(chart);
 ```
 
+#### 格局判斷
+
+排好的盤可以再送進 `detectPatterns()` 判格局。判定器只讀盤面，不依賴排盤過程：
+
+```javascript
+import { generateChartByDatetime, chartToObject, detectPatterns } from './index.js';
+
+const chart = chartToObject(generateChartByDatetime('2024011510'));
+
+for (const item of detectPatterns(chart)) {
+    console.log(item.吉凶, item.格, item.宮 || '（全盤）');
+    console.log('  ', item.細節);
+    console.log('  出處：《' + item.出處[0].書 + '》' + item.出處[0].篇);
+}
+// 凶 門迫 坤宮
+//    傷門（木）臨坤宮（土），門克宮
+//   出處：《奇門法竅》論八門迫制
+// 吉 三奇得使 艮宮
+//    天盤丙奇加地盤戊（甲子）於艮宮
+//   出處：《奇門遁甲統宗》奇門四十格
+```
+
+每則判定包含：
+
+| 欄位 | 說明 |
+|---|---|
+| `格` | 格局名稱 |
+| `吉凶` | 吉／凶／中性 |
+| `宮` | 落宮；全盤性者為 `null` |
+| `細節` | 該例的具體條件 |
+| `出處` | 書名、篇名與原文 |
+| `讀法` | 僅在典籍有異說時出現 |
+
+**異說並列，不代為擇一。** 例如六儀擊刑的判定範圍，《法竅》「甲子直符臨三宮」的
+字面只算值符之儀，另有一說算天盤任一六儀，兩者出現率相差近四倍。本系統兩種都給，
+以 `讀法` 標明，由使用者依所遵流派過濾。
+
+目前已實作：伏吟、反吟、門迫、五不遇時、三奇得使、六儀擊刑。
+
 #### 單獨調用各層運算
 
 若需要更細緻的控制，可直接調用各層函數：
