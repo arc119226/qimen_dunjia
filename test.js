@@ -16,7 +16,11 @@ import {
     generateChartNow,
     chartToObject,
     JIEQI_JUSHU,
-    LUOSHU_BAGUA
+    LUOSHU_BAGUA,
+    LUOSHU_NUMBERS,
+    FLYING_STAR_CHARTS_YANG,
+    FLYING_STAR_CHARTS_YIN,
+    calculateFlyingStars
 } from './index.js';
 
 const VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
@@ -64,6 +68,12 @@ function createAsserter() {
             if (!condition) errors.push(label);
         }
     };
+}
+
+/** 截斷過長的錯誤列表，但一定要說明略去了幾項——無聲上限會讓失敗看起來比實際小 */
+function truncate(items, limit) {
+    if (items.length <= limit) return items;
+    return [...items.slice(0, limit), `（另有 ${items.length - limit} 項未列出）`];
 }
 
 function section(title) {
@@ -117,7 +127,7 @@ const chartTestCases = [
             天盤: ['丁', '庚', '己', '壬', '戊', '癸', '乙', '丙', '辛'],
             天門: ['死門', '驚門', '開門', '景門', '', '休門', '杜門', '傷門', '生門'],
             九星: ['天芮', '天柱', '天心', '天英', '天禽', '天蓬', '天輔', '天沖', '天任'],
-            八神: ['朱雀', '九地', '九天', '勾陳', '', '值符', '六合', '太陰', '滕蛇']
+            八神: ['朱雀', '九地', '九天', '勾陳', '', '值符', '六合', '太陰', '騰蛇']
         }
     },
     {
@@ -131,7 +141,7 @@ const chartTestCases = [
             天盤: ['庚', '壬', '戊', '丁', '丙', '乙', '癸', '己', '辛'],
             天門: ['景門', '死門', '驚門', '杜門', '', '開門', '傷門', '生門', '休門'],
             九星: ['天蓬', '天任', '天沖', '天心', '天禽', '天輔', '天柱', '天芮', '天英'],
-            八神: ['滕蛇', '值符', '九天', '太陰', '', '九地', '六合', '白虎', '玄武']
+            八神: ['騰蛇', '值符', '九天', '太陰', '', '九地', '六合', '白虎', '玄武']
         }
     },
     {
@@ -146,7 +156,7 @@ const chartTestCases = [
             天盤: ['丁', '庚', '壬', '癸', '丙', '戊', '己', '辛', '乙'],
             天門: ['杜門', '景門', '死門', '傷門', '', '驚門', '生門', '休門', '開門'],
             九星: ['天輔', '天英', '天芮', '天沖', '天禽', '天柱', '天任', '天蓬', '天心'],
-            八神: ['六合', '勾陳', '朱雀', '太陰', '', '九地', '滕蛇', '值符', '九天']
+            八神: ['六合', '勾陳', '朱雀', '太陰', '', '九地', '騰蛇', '值符', '九天']
         }
     },
     {
@@ -160,7 +170,7 @@ const chartTestCases = [
             天盤: ['己', '丁', '癸', '乙', '壬', '戊', '辛', '庚', '丙'],
             天門: ['死門', '驚門', '開門', '景門', '', '休門', '杜門', '傷門', '生門'],
             九星: ['天芮', '天柱', '天心', '天英', '天禽', '天蓬', '天輔', '天沖', '天任'],
-            八神: ['九地', '九天', '值符', '朱雀', '', '滕蛇', '勾陳', '六合', '太陰']
+            八神: ['九地', '九天', '值符', '朱雀', '', '騰蛇', '勾陳', '六合', '太陰']
         }
     },
     {
@@ -174,7 +184,7 @@ const chartTestCases = [
             天盤: ['戊', '丙', '庚', '癸', '壬', '辛', '丁', '己', '乙'],
             天門: ['杜門', '景門', '死門', '傷門', '', '驚門', '生門', '休門', '開門'],
             九星: ['天英', '天芮', '天柱', '天輔', '天禽', '天心', '天沖', '天任', '天蓬'],
-            八神: ['值符', '九天', '九地', '滕蛇', '', '玄武', '太陰', '六合', '白虎']
+            八神: ['值符', '九天', '九地', '騰蛇', '', '玄武', '太陰', '六合', '白虎']
         }
     }
 ];
@@ -350,11 +360,8 @@ function runFullYearCoverage() {
         }
     }
 
-    for (const item of thrown.slice(0, 10)) {
+    for (const item of truncate(thrown, 10)) {
         t.errors.push('拋出例外 ' + item);
-    }
-    if (thrown.length > 10) {
-        t.errors.push('（另有 ' + (thrown.length - 10) + ' 個日期同樣拋錯）');
     }
 
     const expectedNames = Object.keys(JIEQI_JUSHU);
@@ -382,7 +389,54 @@ function runHourCoverage() {
         }
     }
 
-    record(`四個日期 × 24 小時共 ${count} 個時辰的落宮自洽性`, t.errors.slice(0, 10));
+    record(`四個日期 × 24 小時共 ${count} 個時辰的落宮自洽性`, truncate(t.errors, 10));
+}
+
+// ============================================================================
+// 第三部分之二：飛星盤
+// ============================================================================
+/**
+ * 兩張飛星盤各有 9 列共 162 個數字，手抄容易出錯（舊版整張表方向就是反的）。
+ * 這裡用飛布公式覆核每一格，並確認陽遁 5 入中就是洛書本身。
+ */
+function runFlyingStarTest() {
+    const t = createAsserter();
+    const wrap = x => ((x - 1) % 9 + 9) % 9 + 1;
+
+    t.deepEqual(LUOSHU_NUMBERS, [4, 9, 2, 3, 5, 7, 8, 1, 6], '洛書數應為 4 9 2 / 3 5 7 / 8 1 6');
+
+    for (let center = 1; center <= 9; center++) {
+        // 順飛：宮位星數 = 入中星數 + (該宮洛書數 - 5)；逆飛則相減
+        t.deepEqual(
+            FLYING_STAR_CHARTS_YANG[center],
+            LUOSHU_NUMBERS.map(n => wrap(center + (n - 5))),
+            `陽遁順飛 ${center} 入中`
+        );
+        t.deepEqual(
+            FLYING_STAR_CHARTS_YIN[center],
+            LUOSHU_NUMBERS.map(n => wrap(center - (n - 5))),
+            `陰遁逆飛 ${center} 入中`
+        );
+    }
+
+    // 5 入中的陽遁盤必須就是洛書
+    t.deepEqual(FLYING_STAR_CHARTS_YANG[5], LUOSHU_NUMBERS, '陽遁 5 入中應等於洛書本身');
+
+    // 陰陽必須給出不同結果（舊版兩者相同，因為只有一張逆飛表）
+    t.ok(
+        calculateFlyingStars(5, true).join() !== calculateFlyingStars(5, false).join(),
+        '陽遁與陰遁的飛星盤應不同'
+    );
+
+    // 未指定陰陽應拋錯，避免又靜默套用單一方向
+    try {
+        calculateFlyingStars(5);
+        t.errors.push('未指定 isYang 時應拋出錯誤');
+    } catch (error) {
+        t.ok(error.message.includes('isYang'), '錯誤訊息應提到 isYang，實際：' + error.message);
+    }
+
+    record('飛星盤：兩張表共 162 格與飛布公式相符，且隨陰陽順逆', t.errors);
 }
 
 // ============================================================================
@@ -517,6 +571,9 @@ function runAllTests() {
     section('第三部分：全年節氣與時辰覆蓋');
     runFullYearCoverage();
     runHourCoverage();
+
+    section('第三部分之二：飛星盤');
+    runFlyingStarTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);

@@ -54,7 +54,10 @@ export {
     LUOSHU_BAGUA,
     
     // 飛星系統
+    LUOSHU_NUMBERS,
     FLYING_STARS,
+    FLYING_STAR_CHARTS_YANG,
+    FLYING_STAR_CHARTS_YIN,
     FLYING_STAR_CHARTS,
     
     // 奇門九星

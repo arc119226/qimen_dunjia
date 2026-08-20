@@ -161,15 +161,15 @@ and must not be regenerated from program output without re-checking them by hand
 Input: `generateQimenChart('2024010112', ['甲辰', '丙寅', '戊午', '庚申', 5, '陽'])`
 
 1. Extract time pillar: '庚申'
-2. Calculate Xun Shou: '庚申' belongs to '甲午' cycle
-3. Get Fu Shou: '甲午' → '辛'
+2. Calculate Xun Shou: '庚申' is the 7th of the 甲寅 decade, so Xun Shou is '甲寅' (fly step 6)
+3. Get Fu Shou: '甲寅' → '癸'
 4. Extract time stem: '庚' (not Jia, so no hiding)
-5. Get Di Pan: `DIPAN_YANG[5]` (Yang bureau game 5)
-6. Calculate Tian Pan: Find '庚' position in Di Pan, then find '辛' (Fu Shou) position, rotate accordingly
-7. Calculate Eight Doors: Find Zhi Shi door from Fu Shou's position in Di Pan, then fly
-8. Calculate Nine Stars: Find Zhi Fu star from Fu Shou's position in Di Pan, then fly
+5. Get Di Pan: `DIPAN_YANG[5]` → `['乙','壬','丁','丙','戊','庚','辛','癸','己']`
+6. Calculate Tian Pan: '庚' sits at index 5 (兌) — the placement start; '癸' (Fu Shou) sits at index 7 (坎) — the pickup start; rotate accordingly
+7. Calculate Eight Doors: '癸' at 坎 → Zhi Shi door is 休門, then fly 6 palaces (Yang = clockwise through the nine palaces)
+8. Calculate Nine Stars: '癸' at 坎 → Zhi Fu star is 天蓬; 落宮 is read back from the resulting 九星 array
 9. Calculate Eight Gods: Start from time stem '庚' position, use Yang deity sequence
-10. Return Map with all 26 result fields
+10. Return Map with 29 fields (32 via `generateChartByDatetime`, which adds 節氣/三元/節後天數)
 
 ## Important Implementation Notes
 

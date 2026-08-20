@@ -35,9 +35,23 @@ Code review 修復版。修正兩個會產生錯誤結果的缺陷，並補強�
   一個 8 方位。已依其餘四列的慣例補齊為 `['西北西','北北西']`／`['東南東','南南東']`。
 - **`dist/API.md` 欄位名與實際輸出不符**：文件寫 `八門`／`年空亡`，函式庫實際
   回傳 `天門`／`年孤虛`；範例 JSON 的樞紐欄位也與實測不符，已全部更正。
+- **飛星盤一律逆飛**：`FLYING_STAR_CHARTS` 九張盤全是逆飛，連陽遁也套用，
+  導致 5 入中時得到的是洛書的 180 度反轉（6 1 8 / 7 5 3 / 2 9 4）而非洛書本身
+  ——與 `constants.js` 自己畫出的洛書矛盾。現改為陽遁順飛、陰遁逆飛。
+  影響 `九宮` 欄位。
+- **八神「滕蛇」用字**：`滕` 為姓氏，屬常見誤寫，且 `constants.js` 與
+  `README.md` 兩處寫法不一致。統一為 `騰蛇`。
+- **`CLAUDE.md` 的 Data Flow Example 推導錯誤**：誤將「庚申」歸入甲午旬
+  （實為甲寅旬）、符首誤為辛（實為癸），並宣稱回傳 26 個欄位（實為 29／32）。
+- **README 範例輸出與實際不符**：`getXunHead('庚申')` 誤寫為 `'甲午'`（兩處）、
+  `getDiPan(true, 5)` 的地盤陣列錯誤、`getKongWangDirection('甲子')` 誤寫為
+  字串 `'西北'`（實際回傳陣列）。
 
 ### Added
 - `JIEQI_ALIAS`：二十四節氣簡繁別名表（僅 5 個節氣存在差異）
+- `LUOSHU_NUMBERS`：洛書數陣列（4 9 2 / 3 5 7 / 8 1 6），飛星飛布的骨架
+- `FLYING_STAR_CHARTS_YANG`／`FLYING_STAR_CHARTS_YIN`：陽遁順飛與陰遁逆飛的飛星盤，
+  兩張表共 162 格皆有測試以飛布公式逐格覆核
 - `getZhiFuStarPosition(zhiFuStar, nineStars)`：由九星飛布結果反查值符落宮
 - `DIRECTIONS`：九宮方位名稱陣列（原本只存在於 `index.html`）
 - `.gitattributes`：固定 `dist/*.js` 的行尾，避免 Windows 上重建後被誤報為已修改
@@ -58,6 +72,13 @@ Code review 修復版。修正兩個會產生錯誤結果的缺陷，並補強�
 ### Deprecated
 - `getZhiFuPosition(tianGan, diPan)`：請改用 `getZhiFuStarPosition`。
   仍保留匯出以維持相容性。
+- `FLYING_STAR_CHARTS`：請改用 `FLYING_STAR_CHARTS_YANG`／`FLYING_STAR_CHARTS_YIN`。
+  別名維持原值（等同陰遁逆飛盤）不變，以免對既有匯入者造成靜默變更。
+
+### BREAKING
+- `calculateFlyingStars(centerStar)` 改為 `calculateFlyingStars(centerStar, isYang)`。
+  未指定 `isYang` 會拋出錯誤，而非靜默套用單一飛布方向。
+- 八神陣列中的 `滕蛇` 改為 `騰蛇`；`九宮` 欄位在陽遁下的值改變（見上方 Fixed）。
 
 ---
 

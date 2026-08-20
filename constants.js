@@ -254,11 +254,51 @@ export const FLYING_STARS = deepFreeze({
 });
 
 /**
- * 飛星入中宮後的九宮分布
+ * 洛書數（按洛書九宮順序，與 LUOSHU_BAGUA 一一對應）
+ *
+ *   4  9  2
+ *   3  5  7
+ *   8  1  6
+ *
+ * 飛星以此為骨架：中宮為 5，沿 5→6→7→8→9→1→2→3→4 宮的順序飛布。
+ * 下方兩張飛星盤即由此推導，可用公式覆核（test.js 有對應斷言）：
+ *   順飛：宮位星數 = 入中星數 + (該宮洛書數 - 5)
+ *   逆飛：宮位星數 = 入中星數 - (該宮洛書數 - 5)
+ * （結果以 1-9 循環）
+ */
+export const LUOSHU_NUMBERS = deepFreeze([
+    4, 9, 2,
+    3, 5, 7,
+    8, 1, 6
+]);
+
+/**
+ * 陽遁飛星盤（順飛）
+ *
+ * key: 入中宮的星數(1-9)
+ * value: 九宮各位置的星數（按洛書九宮順序）
+ *
+ * 5 入中時即為洛書本身（4 9 2 / 3 5 7 / 8 1 6）。
+ */
+export const FLYING_STAR_CHARTS_YANG = deepFreeze({
+    1: [9, 5, 7, 8, 1, 3, 4, 6, 2],
+    2: [1, 6, 8, 9, 2, 4, 5, 7, 3],
+    3: [2, 7, 9, 1, 3, 5, 6, 8, 4],
+    4: [3, 8, 1, 2, 4, 6, 7, 9, 5],
+    5: [4, 9, 2, 3, 5, 7, 8, 1, 6],
+    6: [5, 1, 3, 4, 6, 8, 9, 2, 7],
+    7: [6, 2, 4, 5, 7, 9, 1, 3, 8],
+    8: [7, 3, 5, 6, 8, 1, 2, 4, 9],
+    9: [8, 4, 6, 7, 9, 2, 3, 5, 1]
+});
+
+/**
+ * 陰遁飛星盤（逆飛）
+ *
  * key: 入中宮的星數(1-9)
  * value: 九宮各位置的星數（按洛書九宮順序）
  */
-export const FLYING_STAR_CHARTS = deepFreeze({
+export const FLYING_STAR_CHARTS_YIN = deepFreeze({
     1: [2, 6, 4, 3, 1, 8, 7, 5, 9],
     2: [3, 7, 5, 4, 2, 9, 8, 6, 1],
     3: [4, 8, 6, 5, 3, 1, 9, 7, 2],
@@ -269,6 +309,16 @@ export const FLYING_STAR_CHARTS = deepFreeze({
     8: [9, 4, 2, 1, 8, 6, 5, 3, 7],
     9: [1, 5, 3, 2, 9, 7, 6, 4, 8]
 });
+
+/**
+ * 飛星盤（舊名）
+ *
+ * @deprecated 請改用 FLYING_STAR_CHARTS_YANG / FLYING_STAR_CHARTS_YIN。
+ * 舊版只有這一張表且一律逆飛，連陽遁也用逆飛盤——5 入中時得到的是洛書的
+ * 180 度反轉（6 1 8 / 7 5 3 / 2 9 4），與本檔案自己畫的洛書矛盾。
+ * 此別名維持原值（等同陰遁逆飛盤）僅為相容性，不再用於排盤。
+ */
+export const FLYING_STAR_CHARTS = FLYING_STAR_CHARTS_YIN;
 
 // ============================================================================
 // 奇門九星
@@ -329,10 +379,10 @@ export const EIGHT_DOORS_SEQUENCE = deepFreeze([
 // ============================================================================
 /**
  * 陽局八神
- * 包含：值符、滕蛇、太陰、六合、勾陳、朱雀、九地、九天
+ * 包含：值符、騰蛇、太陰、六合、勾陳、朱雀、九地、九天
  */
 export const EIGHT_GODS_YANG = deepFreeze([
-    '值符', '滕蛇', '太陰', '六合',
+    '值符', '騰蛇', '太陰', '六合',
     '勾陳', '朱雀', '九地', '九天'
 ]);
 
@@ -341,7 +391,7 @@ export const EIGHT_GODS_YANG = deepFreeze([
  * 與陽局差異：勾陳→白虎、朱雀→玄武
  */
 export const EIGHT_GODS_YIN = deepFreeze([
-    '值符', '滕蛇', '太陰', '六合',
+    '值符', '騰蛇', '太陰', '六合',
     '白虎', '玄武', '九地', '九天'
 ]);
 
@@ -453,7 +503,10 @@ export default {
     DIRECTIONS,
     HETU_BAGUA,
     LUOSHU_BAGUA,
+    LUOSHU_NUMBERS,
     FLYING_STARS,
+    FLYING_STAR_CHARTS_YANG,
+    FLYING_STAR_CHARTS_YIN,
     FLYING_STAR_CHARTS,
     QIMEN_STARS,
     TIANQIN_INDEX,

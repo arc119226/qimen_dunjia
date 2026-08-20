@@ -162,7 +162,7 @@ export function generateQimenChart(dateTimeString, data) {
     // 6. 計算基礎盤面
     const heTu = getHeTu();
     const luoShu = getLuoShu();
-    const flyingStars = calculateFlyingStars(gameNumber);
+    const flyingStars = calculateFlyingStars(gameNumber, isYang);
     
     // 7. 第一層：地盤
     const diPan = getDiPan(isYang, gameNumber);

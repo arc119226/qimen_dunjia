@@ -20,7 +20,8 @@ import {
     HETU_BAGUA,
     LUOSHU_BAGUA,
     FLYING_STARS,
-    FLYING_STAR_CHARTS,
+    FLYING_STAR_CHARTS_YANG,
+    FLYING_STAR_CHARTS_YIN,
     QIMEN_STARS,
     EIGHT_DOORS_ORIGINAL,
     EIGHT_DOORS_SEQUENCE,
@@ -63,14 +64,23 @@ export function getLuoShu() {
 
 /**
  * 計算飛星盤
- * 
- * 根據入中宮的星數，計算九宮各位置的飛星分布
- * 
+ *
+ * 根據入中宮的星數，沿洛書宮位順序（5→6→7→8→9→1→2→3→4宮）飛布，
+ * 陽遁順飛、陰遁逆飛。
+ *
+ * 舊版只有一張固定的逆飛表，連陽遁也套用逆飛盤，導致 5 入中時得到的是
+ * 洛書的 180 度反轉而非洛書本身。
+ *
  * @param {number} centerStar - 入中宮的星數（1-9）
+ * @param {boolean} isYang - 是否為陽局（陽遁順飛、陰遁逆飛）
  * @returns {Array<string>} 九宮各位置的飛星名稱
  */
-export function calculateFlyingStars(centerStar) {
-    const starNumbers = FLYING_STAR_CHARTS[centerStar];
+export function calculateFlyingStars(centerStar, isYang) {
+    if (typeof isYang !== 'boolean') {
+        throw new Error('calculateFlyingStars 需指定 isYang：陽遁順飛、陰遁逆飛');
+    }
+    const charts = isYang ? FLYING_STAR_CHARTS_YANG : FLYING_STAR_CHARTS_YIN;
+    const starNumbers = charts[centerStar];
     if (!starNumbers) {
         throw new Error(`無效的中宮星數：${centerStar}，必須為 1-9`);
     }

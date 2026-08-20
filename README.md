@@ -258,12 +258,13 @@ import {
 } from './index.js';
 
 // 範例：查詢「庚申」時辰的旬首與符首
-const xunHead = getXunHead('庚申');  // 返回 '甲午'
-const fuShou = getFuShou('甲午');    // 返回 '辛'
+const xunHead = getXunHead('庚申');  // 返回 '甲寅'（庚申為甲寅旬第 7 位）
+const fuShou = getFuShou('甲寅');    // 返回 '癸'
 
 // 範例：取得陽遁五局的地盤
 const diPan = getDiPan(true, 5);
-// 返回：['辛', '壬', '癸', '庚', '戊', '乙', '己', '丙', '丁']
+// 返回：['乙', '壬', '丁', '丙', '戊', '庚', '辛', '癸', '己']
+// 對應宮位：  巽    離    坤    震    中    兌    艮    坎    乾
 ```
 
 ---
@@ -370,7 +371,7 @@ console.log(`${obj['節氣']} ${obj['三元']} ${obj['陰陽']}遁${obj['局數'
 查詢干支所屬旬首。
 
 ```javascript
-getXunHead('庚申')  // 返回 '甲午'
+getXunHead('庚申')  // 返回 '甲寅'
 getXunHead('甲子')  // 返回 '甲子'
 ```
 
@@ -388,7 +389,8 @@ getFuShou('甲午')  // 返回 '辛'
 查詢旬首對應的空亡方位。
 
 ```javascript
-getKongWangDirection('甲子')  // 返回 '西北'（戌亥空）
+getKongWangDirection('甲子')  // 返回 ['西北西', '北北西']（戌亥空）
+// 注意：返回的是陣列，兩個元素分別對應兩個空亡地支的方位
 ```
 
 ### 五層運算函數
