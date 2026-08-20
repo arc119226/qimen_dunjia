@@ -24,6 +24,7 @@ import {
     SIX_XUNS,
     EARTHLY_BRANCHES,
     ZHI_DIRECTIONS,
+    EIGHT_DOORS_ORIGINAL,
     EIGHT_GODS_YANG,
     EIGHT_GODS_YIN,
     DIPAN_YANG,
@@ -635,6 +636,109 @@ function runYuanlingTest() {
     record('《元靈經》兩則起例（符首落中宮／時干落中宮）', t.errors);
 }
 
+/**
+ * 《景祐遁甲符應經》（錄於《欽定古今圖書集成》術數部彙考十九）
+ *
+ * 此本為宋代文獻，早於統宗、演義諸本，且文中直接附有盤面圖。
+ * 圖為傳統直排，純文字化後每一「行」其實是一「列」且由右列先寫，
+ * 故下方以 [坤兌乾]／[離中坎]／[巽震艮] 三列還原。
+ */
+const YINGJING_GRIDS = [
+    { isYang: true,  ju: 3, shi: '丁亥', rows: [['乙','壬','辛'], ['丁','庚','丙'], ['己','戊','癸']] },
+    { isYang: false, ju: 3, shi: '壬辰', rows: [['己','癸','丁'], ['辛','丙','庚'], ['乙','戊','壬']] },
+    { isYang: true,  ju: 5, shi: '丙午', rows: [['丁','庚','己'], ['壬','戊','癸'], ['乙','丙','辛']] },
+    { isYang: true,  ju: 5, shi: '己亥', rows: [['丁','庚','己'], ['壬','戊','癸'], ['乙','丙','辛']] },
+    { isYang: false, ju: 6, shi: '丁丑', rows: [['壬','乙','戊'], ['丁','己','癸'], ['庚','辛','丙']] }
+];
+const GRID_SLOTS = [[2, 5, 8], [1, 4, 7], [0, 3, 6]];
+
+function runYingjingGridTest() {
+    const t = createAsserter();
+    for (const g of YINGJING_GRIDS) {
+        const restored = new Array(9);
+        g.rows.forEach((row, r) => row.forEach((gan, c) => { restored[GRID_SLOTS[r][c]] = gan; }));
+        const table = g.isYang ? DIPAN_YANG : DIPAN_YIN;
+        t.deepEqual(restored, table[g.ju], `${g.isYang ? '陽' : '陰'}${g.ju}局（${g.shi}時）盤面圖`);
+    }
+    record('《景祐符應經》五張盤面圖共 45 格逐格相符', t.errors);
+}
+
+/** 〈釋九星所主〉同時給出星、宮、門三者的對應 */
+function runYingjingStarDoorTest() {
+    const t = createAsserter();
+    const TABLE = [
+        ['天蓬', 1, '休門'], ['天芮', 2, '死門'], ['天沖', 3, '傷門'], ['天輔', 4, '杜門'],
+        ['天禽', 5, ''],     ['天心', 6, '開門'], ['天柱', 7, '驚門'], ['天任', 8, '生門'], ['天英', 9, '景門']
+    ];
+    for (const [star, palace, door] of TABLE) {
+        const index = LUOSHU_NUMBERS.indexOf(palace);
+        t.equal(QIMEN_STARS[index], star, `${palace}宮之星`);
+        t.equal(EIGHT_DOORS_ORIGINAL[index], door, `${palace}宮之門`);
+    }
+    record('《景祐符應經》〈釋九星所主〉星—宮—門三者對照', t.errors);
+}
+
+/** 值使飛宮的三條敘述：起宮異門、出於四六、踰於五七歸於九一 */
+function runYingjingZhiShiTest() {
+    const t = createAsserter();
+    const palaceNumber = gua => ({ 巽:4, 離:9, 坤:2, 震:3, 中:5, 兌:7, 艮:8, 坎:1, 乾:6 })[gua];
+    const zhiShiAt = (shi, ju, yinYang) =>
+        palaceNumber(chartToObject(generateQimenChart('yj', ['甲子','甲子','甲子', shi, ju, yinYang]))['值使落宮']);
+
+    // 〈釋天乙直使起宮異門〉冬至後陽使起一宮休門；夏至後陰使起九宮景門
+    t.ok(JIEQI_JUSHU['冬至'].yang && JIEQI_JUSHU['冬至'].ju[0] === 1, '冬至上元為陽遁一局');
+    t.ok(!JIEQI_JUSHU['夏至'].yang && JIEQI_JUSHU['夏至'].ju[0] === 9, '夏至上元為陰遁九局');
+    const dongzhi = chartToObject(generateQimenChart('yj', ['甲子','甲子','甲子','甲子', 1, '陽']));
+    t.equal(dongzhi['值使'], '休門', '冬至上元甲子時值使');
+    t.equal(zhiShiAt('甲子', 1, '陽'), 1, '冬至上元甲子時值使在一宮');
+    const xiazhi = chartToObject(generateQimenChart('yj', ['甲子','甲子','甲子','甲子', 9, '陰']));
+    t.equal(xiazhi['值使'], '景門', '夏至上元甲子時值使');
+    t.equal(zhiShiAt('甲子', 9, '陰'), 9, '夏至上元甲子時值使在九宮');
+
+    // 〈釋二遁出於四六〉子時至巳時，陽使出於六，陰使出於四
+    t.equal(zhiShiAt('己巳', 1, '陽'), 6, '陽遁一局巳時值使出於六宮');
+    t.equal(zhiShiAt('己巳', 9, '陰'), 4, '陰遁九局巳時值使出於四宮');
+
+    // 〈釋二遁踰於五七歸於九一〉陽使起一終九歸一；陰使起九終一歸九
+    t.equal(zhiShiAt('壬申', 1, '陽'), 9, '陽遁一局第九時至九宮');
+    t.equal(zhiShiAt('癸酉', 1, '陽'), 1, '陽遁一局第十時歸一宮');
+    t.equal(zhiShiAt('壬申', 9, '陰'), 1, '陰遁九局第九時至一宮');
+    t.equal(zhiShiAt('癸酉', 9, '陰'), 9, '陰遁九局第十時歸九宮');
+
+    record('《景祐符應經》值使飛宮三則（起宮異門／出於四六／踰五七歸九一）', t.errors);
+}
+
+/** 〈釋九天九地太陰六合〉陰陽兩局的四個相對位置互為鏡像 */
+function runYingjingGodsTest() {
+    const t = createAsserter();
+    t.equal(EIGHT_GODS_YANG[7], '九天', '陽遁後一九天');
+    t.equal(EIGHT_GODS_YANG[6], '九地', '陽遁後二九地');
+    t.equal(EIGHT_GODS_YANG[2], '太陰', '陽遁前二太陰');
+    t.equal(EIGHT_GODS_YANG[3], '六合', '陽遁前三六合');
+    // 陰遁逆布，索引 +7／+6 分別落在順向的前一／前二
+    t.equal(EIGHT_GODS_YIN[7], '九天', '陰遁前一九天');
+    t.equal(EIGHT_GODS_YIN[6], '九地', '陰遁前二九地');
+    t.equal(EIGHT_GODS_YIN[2], '太陰', '陰遁後二太陰');
+    t.equal(EIGHT_GODS_YIN[3], '六合', '陰遁後三六合');
+    record('《景祐符應經》〈釋九天九地太陰六合〉陰陽兩局相對位置', t.errors);
+}
+
+/** 〈釋伏吟〉「凡六甲之時，直門符皆是伏吟」 */
+function runFuYinTest() {
+    const t = createAsserter();
+    let count = 0;
+    for (const yinYang of ['陽', '陰']) {
+        for (let ju = 1; ju <= 9; ju++) {
+            for (const shi of ['甲子', '甲戌', '甲申', '甲午', '甲辰', '甲寅']) {
+                const o = chartToObject(generateQimenChart('yj', ['甲子','甲子','甲子', shi, ju, yinYang]));
+                t.deepEqual(o['天盤'], o['地盤'], `${yinYang}${ju}局${shi}時應為伏吟`);
+                count++;
+            }
+        }
+    }
+    record(`《景祐符應經》〈釋伏吟〉六甲時天盤等於地盤（${count} 例）`, t.errors.slice(0, 5));
+}
+
 // ============================================================================
 // 第四部分：輸入驗證
 // ============================================================================
@@ -781,6 +885,11 @@ function runAllTests() {
     runEightGodsVerseTest();
     runYanyiHourTest();
     runYuanlingTest();
+    runYingjingGridTest();
+    runYingjingStarDoorTest();
+    runYingjingZhiShiTest();
+    runYingjingGodsTest();
+    runFuYinTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);
