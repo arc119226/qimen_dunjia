@@ -43,6 +43,9 @@ import {
     DOOR_ELEMENTS,
     detectPatterns,
     detectLiuYiJiXing,
+    detectSanQiRuMu,
+    detectSanDun,
+    detectJieLuKongWang,
     FLYING_STAR_CHARTS_YANG,
     FLYING_STAR_CHARTS_YIN,
     calculateFlyingStars
@@ -1206,6 +1209,169 @@ function runPatternStructureTest() {
            t.errors.slice(0, 5));
 }
 
+/**
+ * 三奇入墓：乙與丙各書一致，丁奇有異說故兩讀法並列
+ */
+function runSanQiRuMuTest() {
+    const t = createAsserter();
+    const ALL_SHI = Object.values(SIX_XUNS).flat();
+
+    let total = 0, unanimous = 0, dingGen = 0, dingQian = 0;
+    for (const yinYang of ['陽', '陰']) {
+        for (let ju = 1; ju <= 9; ju++) {
+            for (const shi of ALL_SHI) {
+                const chart = buildChart(shi, ju, yinYang);
+                total++;
+                for (const item of detectSanQiRuMu(chart)) {
+                    t.equal(item.格, '三奇入墓', '格名');
+                    t.equal(item.吉凶, '凶', '三奇入墓應為凶');
+                    if (item.讀法) {
+                        if (item.讀法.startsWith('丁墓艮八')) dingGen++;
+                        else if (item.讀法.startsWith('丁墓乾六')) dingQian++;
+                        // 有異說者必為丁奇
+                        t.ok(item.細節.includes('丁奇'), '標明讀法者應為丁奇：' + item.細節);
+                    } else {
+                        unanimous++;
+                        // 各書一致者出處應有三部
+                        t.equal(item.出處.length, 3, '乙丙入墓應載於三部文獻：' + item.細節);
+                    }
+                }
+            }
+        }
+    }
+    t.equal(total, 1080, '盤面總數');
+    // 乙臨坤、丙臨乾各約九分之一，合計約九分之二
+    t.ok(Math.abs(unanimous / total - 2 / 9) < 0.02,
+         `乙丙入墓應約占九分之二，實得 ${(unanimous / total * 100).toFixed(1)}%`);
+    // 兩種丁奇讀法各約九分之一，且不應相差懸殊
+    t.ok(Math.abs(dingGen - dingQian) < total * 0.02,
+         `兩種丁奇讀法出現次數應相近，實得艮八 ${dingGen}、乾六 ${dingQian}`);
+
+    // 黃金案例：2024-01-01 14 時，甲子日辛未時，陽遁四局，天盤乙臨坤
+    const sample = chartToObject(generateChartByDatetime('2024010114'));
+    const found = detectSanQiRuMu(sample);
+    t.ok(found.some(f => f.宮 === '坤' && f.細節.includes('乙奇')),
+         '2024-01-01 14時應判出乙奇臨坤入墓');
+
+    record(`三奇入墓：乙丙一致 ${unanimous} 例，丁奇兩讀法各 ${dingGen}／${dingQian} 例`, t.errors.slice(0, 5));
+}
+
+/**
+ * 天遁、地遁、人遁
+ *
+ * 三部文獻條件一致，且天遁地遁都要求天盤之奇壓在特定地盤干之上，
+ * 不是只看門與奇同宮。此處以實際時刻為黃金案例，並驗證嚴格條件確實成立。
+ */
+const SAN_DUN_CASES = [
+    { 名: '天遁', datetime: '2024010218', 宮: '坎', 門: '生門', 奇: '丙', 地盤: '丁' },
+    { 名: '地遁', datetime: '2024010616', 宮: '震', 門: '開門', 奇: '乙', 地盤: '己' },
+    { 名: '人遁', datetime: '2024010312', 宮: '坎', 門: '休門', 奇: '丁', 神: '太陰' }
+];
+
+function runSanDunTest() {
+    const t = createAsserter();
+    const palaceIndex = gua => LUOSHU_BAGUA.indexOf(gua);
+
+    for (const c of SAN_DUN_CASES) {
+        const chart = chartToObject(generateChartByDatetime(c.datetime));
+        const found = detectSanDun(chart).filter(f => f.格 === c.名);
+        t.ok(found.length > 0, `${c.datetime} 應判出${c.名}`);
+        if (!found.length) continue;
+        t.ok(found.some(f => f.宮 === c.宮), `${c.名}應落於${c.宮}宮`);
+        // 逐項核對嚴格條件
+        const i = palaceIndex(c.宮);
+        t.equal(chart['天門'][i], c.門, `${c.名}該宮之門`);
+        t.equal(chart['天盤'][i], c.奇, `${c.名}該宮之天盤`);
+        if (c.地盤) t.equal(chart['地盤'][i], c.地盤, `${c.名}該宮之地盤`);
+        if (c.神) t.equal(chart['八神'][i], c.神, `${c.名}該宮之八神`);
+        t.equal(found[0].吉凶, '吉', `${c.名}應為吉`);
+    }
+
+    // 全域檢查：每一則天遁與地遁都必須滿足地盤條件，不得只憑門奇同宮
+    let checked = 0;
+    for (const yinYang of ['陽', '陰']) {
+        for (let ju = 1; ju <= 9; ju++) {
+            for (const shi of Object.values(SIX_XUNS).flat()) {
+                const chart = buildChart(shi, ju, yinYang);
+                for (const f of detectSanDun(chart)) {
+                    const i = palaceIndex(f.宮);
+                    if (f.格 === '天遁') t.equal(chart['地盤'][i], '丁', '天遁必須下加地盤丁');
+                    if (f.格 === '地遁') t.equal(chart['地盤'][i], '己', '地遁必須下加地盤己');
+                    if (f.格 === '人遁') t.equal(chart['八神'][i], '太陰', '人遁必須與太陰同宮');
+                    checked++;
+                }
+            }
+        }
+    }
+    record(`三遁：三則黃金案例與全盤 ${checked} 例的嚴格條件`, t.errors.slice(0, 5));
+}
+
+/**
+ * 截路空亡
+ *
+ * 表中所列諸時，其時干皆為壬或癸（水阻其路）。反之則不然——戊癸日的戌亥時
+ * 因十干配十二支繞回，時干亦為壬癸，卻不在典籍所列表中。此測試同時驗證
+ * 正向性質與「不以時干壬癸代之」這個刻意的取捨。
+ */
+function runJieLuKongWangTest() {
+    const t = createAsserter();
+    const GAN = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+    const ZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+    const ZI_GAN = { 甲: '甲', 己: '甲', 乙: '丙', 庚: '丙', 丙: '戊', 辛: '戊', 丁: '庚', 壬: '庚', 戊: '壬', 癸: '壬' };
+    const hourGan = (dayGan, zhi) => GAN[(GAN.indexOf(ZI_GAN[dayGan]) + ZHI.indexOf(zhi)) % 10];
+
+    // 元靈經所列之表
+    const TABLE = {
+        甲: ['申', '酉'], 己: ['申', '酉'], 乙: ['午', '未'], 庚: ['午', '未'],
+        丙: ['辰', '巳'], 辛: ['辰', '巳'], 丁: ['寅', '卯'], 壬: ['寅', '卯'],
+        戊: ['子', '丑'], 癸: ['子', '丑']
+    };
+    // 表中每一格的時干都必須是壬或癸
+    for (const [dayGan, hours] of Object.entries(TABLE)) {
+        for (const zhi of hours) {
+            t.ok(['壬', '癸'].includes(hourGan(dayGan, zhi)),
+                 `${dayGan}日${zhi}時的時干應為壬癸，實得 ${hourGan(dayGan, zhi)}`);
+        }
+    }
+    // 戊癸日的戌亥時干亦為壬癸，但不在表中——刻意不以時干壬癸代替查表
+    for (const dayGan of ['戊', '癸']) {
+        for (const zhi of ['戌', '亥']) {
+            t.ok(['壬', '癸'].includes(hourGan(dayGan, zhi)), `${dayGan}日${zhi}時的時干確為壬癸`);
+            t.ok(!TABLE[dayGan].includes(zhi), `${dayGan}日${zhi}時不在元靈經所列表中`);
+        }
+    }
+
+    // 實際盤面：出現率應恰為十二分之二
+    let charts = 0, hit = 0;
+    for (let month = 1; month <= 12; month++) {
+        const daysInMonth = new Date(2024, month, 0).getDate();
+        for (let day = 1; day <= daysInMonth; day += 2) {
+            for (let hour = 0; hour < 24; hour += 2) {
+                const datetime = '2024' + String(month).padStart(2, '0')
+                    + String(day).padStart(2, '0') + String(hour).padStart(2, '0');
+                const chart = chartToObject(generateChartByDatetime(datetime));
+                charts++;
+                const found = detectJieLuKongWang(chart);
+                if (found.length) {
+                    hit++;
+                    t.ok(['壬', '癸'].includes(chart['時干']),
+                         `${datetime} 判為截路空亡，其時干應為壬癸，實得 ${chart['時干']}`);
+                }
+            }
+        }
+    }
+    t.ok(Math.abs(hit / charts - 2 / 12) < 0.02,
+         `截路空亡出現率應約為十二分之二，實得 ${(hit / charts * 100).toFixed(1)}%`);
+
+    // 黃金案例：2024-01-01 16 時，甲子日壬申時
+    const sample = chartToObject(generateChartByDatetime('2024010116'));
+    t.equal(sample['時柱'], '壬申', '樣本時柱');
+    t.ok(detectJieLuKongWang(sample).length > 0, '甲日申時應判為截路空亡');
+
+    record(`截路空亡：表中諸時皆為壬癸時，${charts} 張盤中 ${hit} 例（${(hit / charts * 100).toFixed(1)}%）`,
+           t.errors.slice(0, 5));
+}
+
 // ============================================================================
 // 第四部分：輸入驗證
 // ============================================================================
@@ -1374,6 +1540,9 @@ function runAllTests() {
     runZhiguiPatternTest();
     runJiXingReadingTest();
     runPatternStructureTest();
+    runSanQiRuMuTest();
+    runSanDunTest();
+    runJieLuKongWangTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);

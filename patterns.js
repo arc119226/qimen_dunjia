@@ -71,6 +71,32 @@ const SOURCES = Object.freeze({
         書: '煙波釣叟歌',
         篇: '（《奇門旨歸》卷二錄本）',
         文: '就中伏吟為最凶，天蓬加著地天蓬，天蓬若到天英上，須知即是返吟宮。'
+    }),
+    統宗_四十格: Object.freeze({
+        書: '奇門遁甲統宗',
+        篇: '奇門四十格',
+        文: '三奇入墓：乙奇坤宮、丙奇乾宮、丁奇艮宮。'
+    }),
+    旨歸_入墓: Object.freeze({
+        書: '奇門旨歸',
+        篇: '三奇入墓',
+        文: '乙奇臨坤，丙奇臨乾，丁奇臨艮為三奇入墓，忌行軍，凡百事吉者不吉、凶者不凶，無功之象。'
+    }),
+    寶鑑_奇墓: Object.freeze({
+        書: '奇門寶鑑御定',
+        篇: '釋奇墓奇制與日時干墓同凶',
+        文: '奇墓者，乙奇臨二宮，丙奇、丁奇臨六宮也。二宮藏未，六宮藏戌。'
+            + '乙木墓於未，丙丁火墓於戌，故乙奇墓二、丙丁墓六也。墓則氣絕，不利舉動。'
+    }),
+    法竅_三遁: Object.freeze({
+        書: '奇門法竅',
+        篇: '（與《景祐符應經》〈釋天遁甲〉等三篇、煙波釣叟歌一致）',
+        文: '天遁－生門、丙奇合地盤六丁。地遁－開門、乙奇合地盤六己。人遁－休門、丁奇合太陰。'
+    }),
+    元靈經_截路: Object.freeze({
+        書: '奇門遁甲元靈經',
+        篇: '截路空亡',
+        文: '此時忌出行：甲己申酉空，乙庚午未中，丙辛辰巳上，丁壬寅卯同，惟有戊癸日，子丑永無蹤。'
     })
 });
 
@@ -263,6 +289,125 @@ export function detectLiuYiJiXing(chart) {
     return results;
 }
 
+/**
+ * 三奇入墓：三奇臨於其墓宮
+ *
+ * 乙屬木、木墓於未，未在坤二；丙丁屬火、火墓於戌，戌在乾六。
+ * 乙與丙兩奇各書一致，丁奇則有異說，兩種讀法皆產出：
+ *
+ * - 丁墓艮八：《統宗》〈奇門四十格〉「三奇入墓：乙奇坤宮、丙奇乾宮、丁奇艮宮」、
+ *   《旨歸》〈三奇入墓〉「乙奇臨坤，丙奇臨乾，丁奇臨艮為三奇入墓」
+ * - 丁墓乾六：《寶鑑》〈釋奇墓〉「乙奇臨二宮，丙奇、丁奇臨六宮也…
+ *   乙木墓於未，丙丁火墓於戌」——以五行推之，丙丁同屬火故同墓
+ *
+ * 前者為兩書所載，後者有五行之理，故不代為擇一。
+ */
+const RU_MU = Object.freeze([
+    { 奇: '乙', 宮: '坤', 說: '乙屬木，木墓於未，未在坤二', 出處: ['統宗_四十格', '旨歸_入墓', '寶鑑_奇墓'] },
+    { 奇: '丙', 宮: '乾', 說: '丙屬火，火墓於戌，戌在乾六', 出處: ['統宗_四十格', '旨歸_入墓', '寶鑑_奇墓'] },
+    { 奇: '丁', 宮: '艮', 說: '丁奇墓於艮八', 出處: ['統宗_四十格', '旨歸_入墓'], 讀法: '丁墓艮八（統宗、旨歸）' },
+    { 奇: '丁', 宮: '乾', 說: '丁屬火，與丙同墓於戌', 出處: ['寶鑑_奇墓'], 讀法: '丁墓乾六（寶鑑，丙丁同屬火）' }
+]);
+
+/**
+ * @param {Object} chart - 盤局物件
+ * @returns {Array<Object>} 判定結果
+ */
+export function detectSanQiRuMu(chart) {
+    const results = [];
+    for (const rule of RU_MU) {
+        const index = chart['天盤'].indexOf(rule.奇);
+        if (index === -1 || palaceName(index) !== rule.宮) continue;
+        const item = {
+            格: '三奇入墓',
+            吉凶: '凶',
+            宮: rule.宮,
+            細節: `天盤${rule.奇}奇臨${rule.宮}宮，${rule.說}`,
+            出處: rule.出處.map(key => SOURCES[key])
+        };
+        if (rule.讀法) item.讀法 = rule.讀法;
+        results.push(item);
+    }
+    return results;
+}
+
+/**
+ * 天遁、地遁、人遁
+ *
+ * 三部文獻的條件一字不差：
+ *   《景祐符應經》〈釋天遁甲〉「生門與六丙月奇合臨於六丁之上」
+ *   《奇門法竅》「天遁－生門、丙奇合地盤六丁。地遁－開門、乙奇合地盤六己。
+ *                人遁－休門、丁奇合太陰。」
+ *   煙波釣叟歌「生門六丙合六丁，此為天遁自分明；開門六己合六乙，地遁如斯而已矣；
+ *              休門六丁共太陰，欲求人遁無過此。」
+ *
+ * 注意天遁與地遁都要求「天盤之奇壓在特定地盤干之上」，不是只看門與奇同宮；
+ * 《統宗》〈奇門四十格〉的記法較簡（「生門與丙奇臨」），條件較寬，此處從三書之詳者。
+ */
+const SAN_DUN = Object.freeze([
+    { 名: '天遁', 門: '生門', 奇: '丙', 地盤: '丁', 神: null, 說: '得月精所蔽' },
+    { 名: '地遁', 門: '開門', 奇: '乙', 地盤: '己', 神: null, 說: '得日精所蔽' },
+    { 名: '人遁', 門: '休門', 奇: '丁', 地盤: null, 神: '太陰', 說: '得星精所蔽' }
+]);
+
+/**
+ * @param {Object} chart - 盤局物件
+ * @returns {Array<Object>} 判定結果
+ */
+export function detectSanDun(chart) {
+    const results = [];
+    for (const rule of SAN_DUN) {
+        for (let index = 0; index < 9; index++) {
+            if (chart['天門'][index] !== rule.門) continue;
+            if (chart['天盤'][index] !== rule.奇) continue;
+            if (rule.地盤 && chart['地盤'][index] !== rule.地盤) continue;
+            if (rule.神 && chart['八神'][index] !== rule.神) continue;
+            const condition = rule.地盤
+                ? `${rule.門}與${rule.奇}奇同臨${palaceName(index)}宮，下加地盤${rule.地盤}`
+                : `${rule.門}、${rule.奇}奇與${rule.神}同臨${palaceName(index)}宮`;
+            results.push(finding(rule.名, '吉', palaceName(index),
+                `${condition}，${rule.說}`, SOURCES.法竅_三遁));
+        }
+    }
+    return results;
+}
+
+/**
+ * 截路空亡：該日的特定時辰
+ *
+ * 《奇門遁甲元靈經》：「截路空亡，此時忌出行——甲己申酉空，乙庚午未中，
+ * 丙辛辰巳上，丁壬寅卯同，惟有戊癸日，子丑永無蹤。」
+ *
+ * 表中所列諸時，其時干皆為壬或癸（水阻其路，故曰截路），此性質已寫成測試。
+ * 反之則不然：戊癸日的戌亥時因十干配十二支繞回，時干亦為壬癸，卻不在表中，
+ * 故以典籍所列之表為準，不以「時干壬癸」代之。
+ *
+ * 另按《秘笈大全》〈起截路空亡訣〉作「甲己在坤，乙庚離，丙辛巽位卻相宜，
+ * 丁壬震宮名截路，戊癸乾坎空亡時」，係以宮位立說，與相鄰的〈起喜神訣〉同格式，
+ * 疑指方位而非時辰，所指未明，故不併入。
+ */
+const JIE_LU = Object.freeze({
+    甲: ['申', '酉'], 己: ['申', '酉'],
+    乙: ['午', '未'], 庚: ['午', '未'],
+    丙: ['辰', '巳'], 辛: ['辰', '巳'],
+    丁: ['寅', '卯'], 壬: ['寅', '卯'],
+    戊: ['子', '丑'], 癸: ['子', '丑']
+});
+
+/**
+ * @param {Object} chart - 盤局物件
+ * @returns {Array<Object>} 判定結果
+ */
+export function detectJieLuKongWang(chart) {
+    const dayGan = chart['日柱'][0];
+    const hourZhi = chart['時柱'][1];
+    const blocked = JIE_LU[dayGan];
+    if (!blocked || !blocked.includes(hourZhi)) return [];
+    return [finding('截路空亡', '凶', null,
+        `${dayGan}日逢${hourZhi}時（時干${chart['時干']}，水阻其路），忌出行`,
+        SOURCES.元靈經_截路)];
+}
+
 // ============================================================================
 // 總入口
 // ============================================================================
@@ -274,7 +419,10 @@ const DETECTORS = Object.freeze([
     detectMenPo,
     detectWuBuYu,
     detectSanQiDeShi,
-    detectLiuYiJiXing
+    detectSanQiRuMu,
+    detectSanDun,
+    detectLiuYiJiXing,
+    detectJieLuKongWang
 ]);
 
 /**
@@ -301,5 +449,8 @@ export default {
     detectMenPo,
     detectWuBuYu,
     detectSanQiDeShi,
-    detectLiuYiJiXing
+    detectSanQiRuMu,
+    detectSanDun,
+    detectLiuYiJiXing,
+    detectJieLuKongWang
 };

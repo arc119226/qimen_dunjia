@@ -175,7 +175,7 @@ Four rules govern this module:
    list explicitly. 門迫 is derived from 五行 relations and asserted against
    《法竅》〈論八門迫制〉's 13 explicit pairs.
 
-Currently implemented: 伏吟、反吟、門迫、五不遇時、三奇得使、六儀擊刑.
+Currently implemented (9): 伏吟、反吟、門迫、五不遇時、三奇得使、三奇入墓、天地人三遁、六儀擊刑、截路空亡.
 
 **test.js**: Assertion-driven test suite (42 tests). Every case compares against expected
 values; the golden values in `chartTestCases` were hand-verified against traditional rules

@@ -169,7 +169,10 @@ export {
     detectMenPo,
     detectWuBuYu,
     detectSanQiDeShi,
-    detectLiuYiJiXing
+    detectSanQiRuMu,
+    detectSanDun,
+    detectLiuYiJiXing,
+    detectJieLuKongWang
 } from './patterns.js';
 
 // 匯出主控函數
