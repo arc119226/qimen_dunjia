@@ -74,6 +74,9 @@ export {
     
     // 五行
     ELEMENT_OVERCOMES,
+    ELEMENT_GENERATES,
+    ZHI_ELEMENTS,
+    JIEQI_TO_GUA,
     PALACE_ELEMENTS,
     DOOR_ELEMENTS,
     STAR_ELEMENTS,
@@ -173,7 +176,8 @@ export {
     detectSanDun,
     detectLiuYiJiXing,
     detectJieLuKongWang,
-    detectShiGanKeYing
+    detectShiGanKeYing,
+    assessVigor
 } from './patterns.js';
 
 // 匯出主控函數

@@ -165,6 +165,12 @@
         .keying-item .jx.ji { color: #2e7d32; }
         .keying-item .jx.xiong { color: #c62828; }
         .keying-item .jx.zhong { color: #888; }
+        .vigor-note { color: #666; font-size: 0.8125rem; margin-bottom: 0.4rem; }
+        .vigor-row { font-size: 0.8125rem; padding: 0.1rem 0; }
+        .vigor-row .gong { color: #888; margin-right: 0.35rem; }
+        .vigor-row .st { margin-left: 0.3rem; }
+        .vigor-row .st.strong { color: #2e7d32; }
+        .vigor-row .st.weak { color: #c62828; }
         .data-item .val { font-weight: 500; }
 
         /* ========== 九宮格 ========== */
@@ -344,6 +350,14 @@
                 <div class="panel-header">格局</div>
                 <div class="panel-body">
                     <div id="infoPatterns"></div>
+                </div>
+            </div>
+
+            <!-- 旺相休囚 -->
+            <div class="panel">
+                <div class="panel-header">旺相休囚</div>
+                <div class="panel-body">
+                    <div id="infoVigor"></div>
                 </div>
             </div>
 
@@ -537,6 +551,36 @@ const App = (function() {
         $(containerId).innerHTML = parts.join('');
     }
 
+    /** 旺相休囚：九星依月令（兩家並列），八門依八節輪轉 */
+    function renderVigor(containerId, chart) {
+        const vigor = Qimen.assessVigor(chart);
+        const strong = ['旺', '相'];
+        const cls = function(state) { return strong.indexOf(state) >= 0 ? 'strong' : 'weak'; };
+        const parts = [];
+
+        if (vigor.月令) {
+            parts.push('<div class="vigor-note">月令 ' + vigor.月令.支 + '（' + vigor.月令.五行 + '）'
+                + (vigor.八節 ? '　八節屬' + vigor.八節.卦 + '卦，' + vigor.八節.旺門 + '旺' : '') + '</div>');
+        }
+
+        parts.push('<div class="pattern-sub">九星（法竅／統宗兩家並列）</div>');
+        parts.push('<div class="keying-grid">' + vigor.九星.map(function(s) {
+            return '<div class="vigor-row"><span class="gong">' + s.宮 + '</span>' + s.星
+                + '<span class="st ' + cls(s.法竅) + '">' + s.法竅 + '</span>'
+                + '<span class="st ' + cls(s.統宗) + '">／' + s.統宗 + '</span></div>';
+        }).join('') + '</div>');
+
+        if (vigor.八門) {
+            parts.push('<div class="pattern-sub">八門（統宗八節輪轉）</div>');
+            parts.push('<div class="keying-grid">' + vigor.八門.map(function(d) {
+                return '<div class="vigor-row"><span class="gong">' + d.宮 + '</span>' + d.門
+                    + '<span class="st ' + cls(d.狀態) + '">' + d.狀態 + '</span></div>';
+            }).join('') + '</div>');
+        }
+
+        $(containerId).innerHTML = parts.join('');
+    }
+
     function formatList(value) {
         return (value && value.length) ? value.join('、') : '—';
     }
@@ -593,6 +637,7 @@ const App = (function() {
         ]);
 
         renderPatterns('infoPatterns', chart);
+        renderVigor('infoVigor', chart);
 
         renderCombinedGrid('gridCombined', chart);
 

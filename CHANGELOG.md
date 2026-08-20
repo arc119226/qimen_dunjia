@@ -76,6 +76,12 @@ Code review 修復版。修正兩個會產生錯誤結果的缺陷，並補強�
   只中副榜」並記錄應驗——故另立旗標。各影響 1080 種盤中的 120 種（11.1%），
   其中 28 種同時發生。配套新增 `getZhiShiTargetIndex()`、`isZhiShiInCenter()`、
   `isZhiFuInCenter()`。
+- **`assessVigor(chart)`：旺相休囚**。它決定吉凶之輕重而非有無
+  （《法竅》「吉門有氣益吉，無氣減吉」），故不列入 `detectPatterns`。
+  九星旺相依月令五行，《法竅》與《統宗》各有完整算例卻恰好把旺與相對調，
+  兩家並列而不擇一；八門旺相依《統宗》〈八節應八門旺相〉的八節輪轉，
+  需要節氣，手動起盤時為 `null` 而非臆測。
+  配套新增 `ELEMENT_GENERATES`、`ZHI_ELEMENTS`、`JIEQI_TO_GUA`。
 - `JIEQI_ALIAS`：二十四節氣簡繁別名表（僅 5 個節氣存在差異）
 - `EARTHLY_BRANCHES`、`ZHI_DIRECTIONS`：十二地支與其二十四方位
 - `XUN_TO_KONGWANG_ZHI`：六旬空亡地支（空亡方位表由此推導，並有測試反推驗證）

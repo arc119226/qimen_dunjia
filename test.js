@@ -47,6 +47,8 @@ import {
     detectSanDun,
     detectJieLuKongWang,
     detectShiGanKeYing,
+    assessVigor,
+    ZHI_ELEMENTS,
     FLYING_STAR_CHARTS_YANG,
     FLYING_STAR_CHARTS_YIN,
     calculateFlyingStars
@@ -1489,6 +1491,190 @@ function runKeYingOnChartsTest() {
     record(`十干克應於 ${charts} 張盤共 ${findings} 則，其中 ${withAlt} 則帶法竅異名`, t.errors.slice(0, 5));
 }
 
+/**
+ * 旺相休囚
+ *
+ * 《法竅》〈論九星旺相〉逐一列出五組星的五種月令狀態，共二十五格；
+ * 《統宗》〈九星旺相〉另給天蓬一組五格，恰與法竅的旺相互換。
+ * 兩家皆有完整算例，故並列而不擇一。
+ *
+ * 八門旺相則依《統宗》〈八節應八門旺相〉的八節輪轉，其冬至一節列出全部八門。
+ */
+
+/** 找出月支屬該五行的一個日期時刻（月柱由節氣定，故以實際起盤取得） */
+function findChartWithMonthElement(element) {
+    for (let month = 1; month <= 12; month++) {
+        for (let day = 5; day <= 25; day += 5) {
+            const datetime = '2024' + String(month).padStart(2, '0') + String(day).padStart(2, '0') + '12';
+            const chart = chartToObject(generateChartByDatetime(datetime));
+            if (ZHI_ELEMENTS[chart['月柱'][1]] === element) return chart;
+        }
+    }
+    return null;
+}
+
+/** 《法竅》〈論九星旺相〉五組星共二十五格 */
+const FAQIAO_VIGOR = [
+    { 星: '天蓬', 五行: '水', 旺: '水', 相: '木', 廢: '金', 休: '火', 囚: '土' },
+    { 星: '天英', 五行: '火', 旺: '火', 相: '土', 廢: '木', 休: '金', 囚: '水' },
+    { 星: '天沖', 五行: '木', 旺: '木', 相: '火', 廢: '水', 休: '土', 囚: '金' },
+    { 星: '天輔', 五行: '木', 旺: '木', 相: '火', 廢: '水', 休: '土', 囚: '金' },
+    { 星: '天心', 五行: '金', 旺: '金', 相: '水', 廢: '土', 休: '木', 囚: '火' },
+    { 星: '天柱', 五行: '金', 旺: '金', 相: '水', 廢: '土', 休: '木', 囚: '火' },
+    { 星: '天芮', 五行: '土', 旺: '土', 相: '金', 廢: '火', 休: '水', 囚: '木' },
+    { 星: '天禽', 五行: '土', 旺: '土', 相: '金', 廢: '火', 休: '水', 囚: '木' },
+    { 星: '天任', 五行: '土', 旺: '土', 相: '金', 廢: '火', 休: '水', 囚: '木' }
+];
+
+/** 《統宗》〈九星旺相〉天蓬一組：旺於我生、相於同類，恰與法竅互換 */
+const TONGZONG_TIANPENG = { 旺: '木', 相: '水', 死: '金', 廢: '火', 囚: '土' };
+
+function runVigorTest() {
+    const t = createAsserter();
+    const ELEMENTS = ['木', '火', '土', '金', '水'];
+
+    // 先直接核對地支五行本身。若不先驗這一步，下方以 ZHI_ELEMENTS 挑選月份的作法
+    // 會變成循環驗證——表寫錯了也只是挑到別的月份，測試照樣通過。
+    // 分組取自《法竅》〈論九星旺相〉的算例月份：
+    //   「旺於亥子月，水同類也；相於寅卯月，水生木也；廢於申酉月，金生水也；
+    //     休於巳午月，水克火也；囚於辰戌丑未月，土克水也。」
+    const FAQIAO_MONTH_GROUPS = {
+        水: ['亥', '子'], 木: ['寅', '卯'], 金: ['申', '酉'],
+        火: ['巳', '午'], 土: ['辰', '戌', '丑', '未']
+    };
+    for (const [element, branches] of Object.entries(FAQIAO_MONTH_GROUPS)) {
+        for (const zhi of branches) {
+            t.equal(ZHI_ELEMENTS[zhi], element, `${zhi}月應屬${element}（法竅算例）`);
+        }
+    }
+    t.equal(Object.keys(ZHI_ELEMENTS).length, 12, '十二地支俱全，不多不少');
+
+    // 為五種月令各取一張真盤
+    const byElement = {};
+    for (const element of ELEMENTS) {
+        const chart = findChartWithMonthElement(element);
+        t.ok(!!chart, `應能找到月令屬${element}的盤`);
+        if (chart) byElement[element] = chart;
+    }
+
+    // 《法竅》二十五格（九星去重後為五組五行）
+    for (const spec of FAQIAO_VIGOR) {
+        for (const state of ['旺', '相', '廢', '休', '囚']) {
+            const chart = byElement[spec[state]];
+            if (!chart) continue;
+            const entry = assessVigor(chart).九星.find(s => s.星 === spec.星);
+            t.ok(!!entry, `盤中應有${spec.星}`);
+            if (!entry) continue;
+            t.equal(entry.五行, spec.五行, `${spec.星}之五行`);
+            t.equal(entry.法竅, state,
+                `法竅：${spec.星}（${spec.五行}）於${spec[state]}月應為${state}`);
+        }
+    }
+
+    // 《統宗》天蓬一組
+    for (const [state, element] of Object.entries(TONGZONG_TIANPENG)) {
+        const chart = byElement[element];
+        if (!chart) continue;
+        const entry = assessVigor(chart).九星.find(s => s.星 === '天蓬');
+        t.equal(entry.統宗, state, `統宗：天蓬（水）於${element}月應為${state}`);
+    }
+
+    // 兩家恰在同類與我生上互換，克我則一致作囚
+    for (const element of ELEMENTS) {
+        for (const entry of assessVigor(byElement[element]).九星) {
+            if (entry.關係 === '同類') {
+                t.equal(entry.法竅, '旺', '同類：法竅作旺');
+                t.equal(entry.統宗, '相', '同類：統宗作相');
+            }
+            if (entry.關係 === '我生') {
+                t.equal(entry.法竅, '相', '我生：法竅作相');
+                t.equal(entry.統宗, '旺', '我生：統宗作旺');
+            }
+            if (entry.關係 === '克我') {
+                t.equal(entry.法竅, '囚', '克我：兩家皆作囚');
+                t.equal(entry.統宗, '囚', '克我：兩家皆作囚');
+            }
+        }
+    }
+
+    record('九星旺相：《法竅》二十五格與《統宗》天蓬五格，兩家並列', t.errors.slice(0, 5));
+}
+
+/**
+ * 八門旺相：《統宗》〈八節應八門旺相〉
+ *
+ * 「冬至：休門旺，生門絕，傷門胎，杜門沐，景門死，死門囚，驚門休，開門廢。
+ *   立春生門旺，春分傷門旺，立夏杜門旺，夏至景門旺，立秋死門旺，
+ *   秋分驚門旺，立冬開門旺，冬至周而復始。」
+ */
+const TONGZONG_DOOR_DONGZHI = {
+    休門: '旺', 生門: '絕', 傷門: '胎', 杜門: '沐',
+    景門: '死', 死門: '囚', 驚門: '休', 開門: '廢'
+};
+
+const TONGZONG_PROSPEROUS_DOOR = {
+    冬至: '休門', 立春: '生門', 春分: '傷門', 立夏: '杜門',
+    夏至: '景門', 立秋: '死門', 秋分: '驚門', 立冬: '開門'
+};
+
+function runDoorVigorTest() {
+    const t = createAsserter();
+
+    // 冬至一節，八門狀態逐一核對
+    let dongzhiChart = null;
+    for (const datetime of ['2024122212', '2024122512', '2024123012']) {
+        const chart = chartToObject(generateChartByDatetime(datetime));
+        if (chart['節氣'] === '冬至') { dongzhiChart = chart; break; }
+    }
+    t.ok(!!dongzhiChart, '應能取得冬至節的盤');
+    if (dongzhiChart) {
+        const vigor = assessVigor(dongzhiChart);
+        t.equal(vigor.八節.卦, '坎', '冬至屬坎卦');
+        t.equal(vigor.八節.旺門, '休門', '冬至休門旺');
+        t.equal(vigor.八門.length, 8, '八門各有狀態');
+        for (const entry of vigor.八門) {
+            t.equal(entry.狀態, TONGZONG_DOOR_DONGZHI[entry.門],
+                `冬至 ${entry.門} 應為${TONGZONG_DOOR_DONGZHI[entry.門]}`);
+        }
+    }
+
+    // 八節各自的旺門
+    const found = {};
+    for (let month = 1; month <= 12; month++) {
+        for (let day = 3; day <= 28; day += 5) {
+            const datetime = '2024' + String(month).padStart(2, '0') + String(day).padStart(2, '0') + '12';
+            const chart = chartToObject(generateChartByDatetime(datetime));
+            const vigor = assessVigor(chart);
+            if (!vigor.八節) continue;
+            const gua = vigor.八節.卦;
+            if (!found[gua]) found[gua] = vigor;
+        }
+    }
+    const GUA_TO_JIE = { 坎: '冬至', 艮: '立春', 震: '春分', 巽: '立夏', 離: '夏至', 坤: '立秋', 兌: '秋分', 乾: '立冬' };
+    t.equal(Object.keys(found).length, 8, '全年應涵蓋八節');
+    for (const [gua, vigor] of Object.entries(found)) {
+        t.equal(vigor.八節.旺門, TONGZONG_PROSPEROUS_DOOR[GUA_TO_JIE[gua]],
+            `${GUA_TO_JIE[gua]}（${gua}卦）之旺門`);
+        // 每節八門恰各得一種狀態，無重複
+        const states = vigor.八門.map(d => d.狀態);
+        t.equal(new Set(states).size, 8, `${GUA_TO_JIE[gua]} 八門狀態應各不相同`);
+    }
+
+    record('八門旺相：冬至八門逐一相符，八節旺門各如統宗所列', t.errors.slice(0, 5));
+}
+
+/** 手動起盤無節氣，八門旺相應為 null 而非臆測 */
+function runVigorFallbackTest() {
+    const t = createAsserter();
+    const manual = buildChart('庚申', 5, '陽');
+    const vigor = assessVigor(manual);
+    t.equal(vigor.八門, null, '無節氣時八門旺相應為 null');
+    t.equal(vigor.八節, null, '無節氣時八節應為 null');
+    t.ok(!!vigor.月令, '月柱仍在，月令應可判定');
+    t.equal(vigor.九星.length, 9, '九星旺相不依賴節氣');
+    record('無節氣的手動盤：八門旺相從缺而非臆測', t.errors);
+}
+
 // ============================================================================
 // 第四部分：輸入驗證
 // ============================================================================
@@ -1663,6 +1849,9 @@ function runAllTests() {
     runShiGanKeYingTest();
     runTongzongFortyTest();
     runKeYingOnChartsTest();
+    runVigorTest();
+    runDoorVigorTest();
+    runVigorFallbackTest();
 
     section('第四部分：輸入驗證');
     datetimeValidationCases.forEach(runDatetimeValidationTest);

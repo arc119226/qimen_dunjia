@@ -24,12 +24,20 @@ import {
     LUOSHU_BAGUA,
     PALACE,
     ELEMENT_OVERCOMES,
+    ELEMENT_GENERATES,
+    ZHI_ELEMENTS,
+    JIEQI_TO_GUA,
     PALACE_ELEMENTS,
     DOOR_ELEMENTS,
+    STAR_ELEMENTS,
     GAN_ELEMENTS,
     QIMEN_STARS,
+    EIGHT_DOORS_ORIGINAL,
+    EIGHT_DOORS_SEQUENCE,
     ZHONG_SUBSTITUTE
 } from './constants.js';
+
+import { rotateArrayFromIndex } from './utils.js';
 
 // ============================================================================
 // 出處
@@ -612,6 +620,112 @@ export function detectShiGanKeYing(chart) {
 }
 
 // ============================================================================
+// 旺相休囚
+// ============================================================================
+/**
+ * 旺相休囚不是「格」，是強弱。
+ *
+ * 《奇門法竅》：「吉門有氣益吉，無氣減吉；凶門有氣益凶，無氣減凶。」
+ * 也就是說它不決定吉凶之有無，而決定吉凶之輕重，故不列為 detectPatterns 的判定，
+ * 另以 assessVigor() 提供，由呼叫端與格局判定合看。
+ *
+ * 九星旺相依月令五行，兩部典籍**恰好把旺與相對調**，各有完整算例，皆並列：
+ *
+ *   《奇門法竅》〈論九星旺相〉：「與我同行即為旺，我生之月誠為相，
+ *     廢於父母休於財，囚於鬼兮真不妄。」
+ *     算例：天蓬水星，旺於亥子（同類）、相於寅卯（水生木）、廢於申酉（金生水）、
+ *          休於巳午（水克火）、囚於辰戌丑未（土克水）。
+ *
+ *   《奇門遁甲統宗》〈九星旺相〉：「九星旺于子月，相于本月，死于父母月，
+ *     囚于鬼月，废于妻月。」（子＝我生，本＝同類）
+ *     算例：天蓬水星，正二月（木．我生）旺、十月十一月（水．同類）相、
+ *          七月八月（金．生我）死、三六九十二月（土．克我）囚、四五月（火．我克）廢。
+ *
+ * 兩者對五種關係的排序一致，只是旺與相的名目互換，弱勢三態的名目亦異。
+ *
+ * 統宗另有〈旺相休囚〉一條作「春木相火旺水廢金囚土休」云云，與其〈九星旺相〉
+ * 自相矛盾且無算例，疑有錯簡，故不採。
+ */
+
+/** 星（或門）之五行對月令五行的關係 */
+function elementRelation(own, month) {
+    if (own === month) return '同類';
+    if (ELEMENT_GENERATES[own] === month) return '我生';
+    if (ELEMENT_GENERATES[month] === own) return '生我';
+    if (ELEMENT_OVERCOMES[own] === month) return '我克';
+    if (ELEMENT_OVERCOMES[month] === own) return '克我';
+    return null;
+}
+
+/** 兩家對五種關係的名目 */
+const VIGOR_BY_SCHOOL = Object.freeze({
+    法竅: Object.freeze({ 同類: '旺', 我生: '相', 生我: '廢', 我克: '休', 克我: '囚' }),
+    統宗: Object.freeze({ 同類: '相', 我生: '旺', 生我: '死', 我克: '廢', 克我: '囚' })
+});
+
+/**
+ * 八門旺相：依八節輪轉
+ *
+ * 《奇門遁甲統宗》〈八節應八門旺相〉：「冬至：休門旺，生門絕，傷門胎，杜門沐，
+ * 景門死，死門囚，驚門休，開門廢。立春生門旺，春分傷門旺，立夏杜門旺，
+ * 夏至景門旺，立秋死門旺，秋分驚門旺，立冬開門旺，冬至周而復始。」
+ *
+ * 該節所屬之卦，其本位門為旺；其餘依八門固定次序（休生傷杜景死驚開）順推。
+ * 旺門既隨八節輪轉，此表只需記狀態之序，旺門由 JIEQI_TO_GUA 與八門本位推得。
+ */
+const DOOR_VIGOR_CYCLE = Object.freeze(['旺', '絕', '胎', '沐', '死', '囚', '休', '廢']);
+
+/**
+ * 評估盤局中九星與八門的強弱
+ *
+ * @param {Object} chart - chartToObject() 的結果
+ * @returns {Object} 月令、九星旺相（兩家並列）、八門旺相（需有節氣，否則為 null）
+ *
+ * @example
+ * const chart = chartToObject(generateChartByDatetime('2024011510'));
+ * const vigor = assessVigor(chart);
+ * vigor.九星[0];  // { 宮: '巽', 星: '天任', 五行: '土', 關係: '我克', 法竅: '休', 統宗: '廢' }
+ */
+export function assessVigor(chart) {
+    const monthZhi = chart['月柱'] ? chart['月柱'][1] : null;
+    const monthElement = monthZhi ? ZHI_ELEMENTS[monthZhi] : null;
+
+    const stars = chart['九星'].map((star, index) => {
+        const own = STAR_ELEMENTS[star];
+        const relation = monthElement ? elementRelation(own, monthElement) : null;
+        return {
+            宮: palaceName(index),
+            星: star,
+            五行: own,
+            關係: relation,
+            法竅: relation ? VIGOR_BY_SCHOOL.法竅[relation] : null,
+            統宗: relation ? VIGOR_BY_SCHOOL.統宗[relation] : null
+        };
+    });
+
+    // 八門旺相需知節氣；手動起盤（generateQimenChart）無此欄位
+    const gua = chart['節氣'] ? JIEQI_TO_GUA[chart['節氣']] : null;
+    let doors = null;
+    if (gua) {
+        const prosperous = EIGHT_DOORS_ORIGINAL[LUOSHU_BAGUA.indexOf(gua)];
+        const start = EIGHT_DOORS_SEQUENCE.indexOf(prosperous);
+        const order = rotateArrayFromIndex(EIGHT_DOORS_SEQUENCE, start);
+        const stateOf = {};
+        order.forEach((door, i) => { stateOf[door] = DOOR_VIGOR_CYCLE[i]; });
+        doors = chart['天門']
+            .map((door, index) => (door ? { 宮: palaceName(index), 門: door, 狀態: stateOf[door] } : null))
+            .filter(Boolean);
+    }
+
+    return {
+        月令: monthElement ? { 支: monthZhi, 五行: monthElement } : null,
+        八節: gua ? { 卦: gua, 旺門: EIGHT_DOORS_ORIGINAL[LUOSHU_BAGUA.indexOf(gua)] } : null,
+        九星: stars,
+        八門: doors
+    };
+}
+
+// ============================================================================
 // 總入口
 // ============================================================================
 
@@ -657,5 +771,6 @@ export default {
     detectSanDun,
     detectLiuYiJiXing,
     detectJieLuKongWang,
-    detectShiGanKeYing
+    detectShiGanKeYing,
+    assessVigor
 };

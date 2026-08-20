@@ -189,6 +189,22 @@ almost character for character); 《法竅》's separate naming lives in `異名
 《統宗》〈奇門四十格〉 was **not** used to build it — its ten 十干克應 entries serve as an
 independent check in test.js.
 
+**旺相休囚 is not a finding.** It decides how *heavy* a judgment is, not whether it fires
+(《法竅》: 「吉門有氣益吉，無氣減吉」), so it lives in `assessVigor(chart)` rather than
+`detectPatterns`. Two schools are returned side by side because 《法竅》 and 《統宗》
+**swap 旺 and 相** — both with complete worked examples, so neither is picked over the other:
+
+| star vs month | 法竅 | 統宗 |
+|---|---|---|
+| 同類 | 旺 | 相 |
+| 我生 | 相 | 旺 |
+| 生我 | 廢 | 死 |
+| 我克 | 休 | 廢 |
+| 克我 | 囚 | 囚 |
+
+八門旺相 needs 節氣, which only `generateChartByDatetime` supplies; a manually built chart
+returns `八門: null` rather than guessing.
+
 **test.js**: Assertion-driven test suite (42 tests). Every case compares against expected
 values; the golden values in `chartTestCases` were hand-verified against traditional rules
 and must not be regenerated from program output without re-checking them by hand.

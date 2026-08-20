@@ -131,6 +131,23 @@ Qimen.detectPatterns(chart);
 
 個別判定器亦可單獨呼叫（`detectMenPo`、`detectShiGanKeYing` 等）。
 
+#### `assessVigor(chart)`
+
+評估九星與八門的強弱。旺相休囚決定吉凶之輕重而非有無，故不在 `detectPatterns` 之內。
+
+```javascript
+const chart = Qimen.chartToObject(Qimen.generateChartByDatetime('2024122512'));
+Qimen.assessVigor(chart);
+// { 月令: { 支: '子', 五行: '水' },
+//   八節: { 卦: '坎', 旺門: '休門' },
+//   九星: [ { 宮, 星, 五行, 關係, 法竅, 統宗 }, … 9 ],
+//   八門: [ { 宮, 門, 狀態 }, … 8 ] }
+```
+
+九星旺相兩家並列：《法竅》與《統宗》各有完整算例但恰好把旺與相對調，
+故 `法竅` 與 `統宗` 兩個欄位同時給出。八門旺相需要節氣，
+手動起盤時 `八門` 與 `八節` 為 `null`。
+
 ### 格式轉換
 
 #### `chartToObject(chart)`
