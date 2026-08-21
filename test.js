@@ -53,6 +53,8 @@ import {
     detectShiGanKeYing,
     // 供斷語逐格比對
     assessVigor,
+    VIGOR_READINGS,
+    VIGOR_READINGS_NOT_ADOPTED,
     ZHI_ELEMENTS,
     FLYING_STAR_CHARTS_YANG,
     FLYING_STAR_CHARTS_YIN,
@@ -1520,9 +1522,8 @@ function runKeYingOnChartsTest() {
 /**
  * 旺相休囚
  *
- * 《法竅》〈論九星旺相〉逐一列出五組星的五種月令狀態，共二十五格；
- * 《統宗》〈九星旺相〉另給天蓬一組五格，恰與法竅的旺相互換。
- * 兩家皆有完整算例，故並列而不擇一。
+ * 語料中互不相容者至少七家，本專案收其中有完整算例的四家。收錄的門檻是
+ * 「自帶算例，可用其算例反驗其對照表」——見 runVigorReadingExampleTest。
  *
  * 八門旺相則依《統宗》〈八節應八門旺相〉的八節輪轉，其冬至一節列出全部八門。
  */
@@ -1539,7 +1540,46 @@ function findChartWithMonthElement(element) {
     return null;
 }
 
-/** 《法竅》〈論九星旺相〉五組星共二十五格 */
+/**
+ * 四家的天蓬水星算例——每一家都自帶，故可用算例反驗其對照表
+ *
+ * 這是收錄一家的門檻：對照表是自「規則」那句話讀出來的，而算例是獨立的一組
+ * 月份，兩者相符才算讀對。四家逐字照抄如下，皆為天蓬（水星）的五格：
+ *
+ *  甲《寶鑒御定》〈釋氣應〉：
+ *    「如水星旺於寅卯月、相於亥子月、休於四五月、囚於辰戌丑未月、廢於申酉月是也。」
+ *  乙《法竅》卷一〈煙波釣叟賦注釋〉：
+ *    「如天蓬水星，旺於亥子月，水同類也；相於寅卯月，水生木也；廢於申酉月，
+ *      金生水也；休於巳午月，水克火也；囚於辰戌丑未月，土克水也。」
+ *  丙《統宗》卷之一〈九星旺相〉：
+ *    「如天蓬水星，正二月旺，十月十一月相，七月八月死，三六九十二月囚，四五月废。」
+ *  丁《圖書集成》〈釋九星休旺〉引《三元經》：
+ *    「假如天蓬星是水星，旺於寅卯月，相於亥子月，死於申酉月，囚於辰戌丑未月，
+ *      休於巳午月是也。」
+ *
+ * 月份對五行：寅卯＝木、巳午（四五月）＝火、申酉（七八月）＝金、
+ * 亥子（十、十一月）＝水、辰戌丑未（三六九十二月）＝土。
+ */
+const TIANPENG_WORKED_EXAMPLES = [
+    {
+        讀法: '煙波釣叟歌通行本',
+        算例: { 木: '旺', 水: '相', 火: '休', 土: '囚', 金: '廢' }
+    },
+    {
+        讀法: '法竅注本（旺相互易）',
+        算例: { 水: '旺', 木: '相', 金: '廢', 火: '休', 土: '囚' }
+    },
+    {
+        讀法: '統宗卷一〈九星旺相〉',
+        算例: { 木: '旺', 水: '相', 金: '死', 土: '囚', 火: '廢' }
+    },
+    {
+        讀法: '三元經（圖書集成本）',
+        算例: { 木: '旺', 水: '相', 金: '死', 土: '囚', 火: '休' }
+    }
+];
+
+/** 《法竅》卷一注文的五組星二十五格——收錄門檻最高的一家，全表可驗 */
 const FAQIAO_VIGOR = [
     { 星: '天蓬', 五行: '水', 旺: '水', 相: '木', 廢: '金', 休: '火', 囚: '土' },
     { 星: '天英', 五行: '火', 旺: '火', 相: '土', 廢: '木', 休: '金', 囚: '水' },
@@ -1552,8 +1592,120 @@ const FAQIAO_VIGOR = [
     { 星: '天任', 五行: '土', 旺: '土', 相: '金', 廢: '火', 休: '水', 囚: '木' }
 ];
 
-/** 《統宗》〈九星旺相〉天蓬一組：旺於我生、相於同類，恰與法竅互換 */
-const TONGZONG_TIANPENG = { 旺: '木', 相: '水', 死: '金', 廢: '火', 囚: '土' };
+/**
+ * 每一家的對照表都必須被它自己的算例證實
+ *
+ * 對照表是從「規則」那句話讀出來的（如《寶鑒》「皆以我生之月為旺，我同之月為相…」），
+ * 算例則是獨立的一組月份。兩者相符，才證明那句話被讀對了。
+ * 這一則測試不碰盤面，只驗表與算例是否自洽。
+ */
+function runVigorReadingExampleTest() {
+    const t = createAsserter();
+    const relationOf = (own, month) => {
+        if (own === month) return '同類';
+        if (ELEMENT_GENERATES[own] === month) return '我生';
+        if (ELEMENT_GENERATES[month] === own) return '生我';
+        if (ELEMENT_OVERCOMES[own] === month) return '我克';
+        if (ELEMENT_OVERCOMES[month] === own) return '克我';
+        return null;
+    };
+
+    t.equal(VIGOR_READINGS.length, TIANPENG_WORKED_EXAMPLES.length,
+            '收錄的每一家都必須有天蓬算例——這是收錄的門檻');
+
+    for (const worked of TIANPENG_WORKED_EXAMPLES) {
+        const reading = VIGOR_READINGS.find(r => r.讀法 === worked.讀法);
+        t.ok(!!reading, `應有讀法「${worked.讀法}」`);
+        if (!reading) continue;
+
+        const seen = new Set();
+        for (const [monthElement, expected] of Object.entries(worked.算例)) {
+            const relation = relationOf('水', monthElement);   // 天蓬屬水
+            t.ok(relation !== null, `水對${monthElement}月的關係`);
+            t.equal(reading.對照[relation], expected,
+                    `${worked.讀法}：天蓬（水）於${monthElement}月，算例作「${expected}」`);
+            seen.add(relation);
+        }
+        t.equal(seen.size, 5, `${worked.讀法}：天蓬算例應涵蓋全部五種關係`);
+        t.equal(Object.keys(reading.對照).length, 5, `${worked.讀法}：對照表應為五格`);
+    }
+
+    // 四家互不相同——若有兩家完全一樣，就不該分列
+    const signatures = VIGOR_READINGS.map(r =>
+        ['同類', '我生', '生我', '我克', '克我'].map(k => r.對照[k]).join(''));
+    t.equal(new Set(signatures).size, VIGOR_READINGS.length,
+            `四家的對照表應互不相同，實得 ${signatures.join('、')}`);
+
+    // 「旺」與「相」在各家之間確實互換——這正是不可只取一家的理由
+    const tongLei = VIGOR_READINGS.map(r => r.對照.同類);
+    t.ok(tongLei.includes('旺') && tongLei.includes('相'),
+         `同類一格在各家之間應兼有旺與相，實得 ${tongLei.join('、')}`);
+
+    // 出處必須逐字釘住。只斷言「非空」或「夠長」擋不住把引文改掉一半——
+    // 而出處原文正是整個判斷層可信度的載體。
+    const EXPECTED_SOURCES = {
+        '煙波釣叟歌通行本': {
+            書: '奇門寶鑒御定',
+            篇: '釋氣應',
+            文: '九星蓬水、英火、衝輔木、任芮禽土、柱心金，皆以我生之月為旺，' +
+                '我同之月為相，我克之月為休，克我之月為囚，生我之月為廢。' +
+                '如水星旺於寅卯月、相於亥子月、休於四五月、囚於辰戌丑未月、' +
+                '廢於申酉月是也。'
+        },
+        '法竅注本（旺相互易）': {
+            書: '奇門法竅',
+            篇: '卷一．煙波釣叟賦注釋',
+            文: '與我同行即為旺，我生之月誠為相，廢於父母休於財，囚於鬼兮真不妄。' +
+                '……經云：「我生之月為相，同類之月為旺，生我之月為廢，' +
+                '我克之月為休，克我之月為囚。」'
+        },
+        '統宗卷一〈九星旺相〉': {
+            書: '奇門遁甲統宗',
+            篇: '卷之一．九星旺相',
+            文: '九星旺于子月，相于本月，死于父母月，囚于鬼月，废于妻月。' +
+                '如天蓬水星，正二月旺，十月十一月相，七月八月死，三六九十二月囚，四五月废。'
+        },
+        '三元經（圖書集成本）': {
+            書: '欽定古今圖書集成博物彙編藝術典',
+            篇: '釋九星休旺（引《三元經》）',
+            文: '九星各旺於我生月，相於同類月，死於生我月，囚於官鬼月，休於財月。' +
+                '……假如天蓬星是水星，旺於寅卯月，相於亥子月，死於申酉月，' +
+                '囚於辰戌丑未月，休於巳午月是也。'
+        }
+    };
+    for (const reading of VIGOR_READINGS) {
+        const expected = EXPECTED_SOURCES[reading.讀法];
+        t.ok(!!expected, `${reading.讀法} 應在出處黃金表中`);
+        if (!expected) continue;
+        t.equal(reading.出處.書, expected.書, `${reading.讀法} 出處之書`);
+        t.equal(reading.出處.篇, expected.篇, `${reading.讀法} 出處之篇`);
+        t.equal(reading.出處.文, expected.文, `${reading.讀法} 出處原文須逐字相符`);
+    }
+
+    // 未收的三家須記明理由，不得靜默丟棄
+    t.equal(VIGOR_READINGS_NOT_ADOPTED.length, 3, '未收的家數');
+    // 未收之由也要釘住關鍵字——它是「為何不收」的唯一記載，
+    // 改成空話等於把判斷的依據抹掉
+    const EXPECTED_REASONS = {
+        '三元經（演義本）': '全無算例',
+        '秘笈卷二十三〈論十方星將生剋〉': '全無算例',
+        '演義〈五行旺相休囚〉方位式': '不以月令而以方位立說'
+    };
+    for (const reading of VIGOR_READINGS_NOT_ADOPTED) {
+        t.ok(!!reading.未收之由 && reading.未收之由.length > 10,
+             `${reading.讀法} 應記明未收之由`);
+        const keyword = EXPECTED_REASONS[reading.讀法];
+        t.ok(!!keyword, `${reading.讀法} 應在未收清單中`);
+        t.ok(!!keyword && reading.未收之由.startsWith(keyword),
+             `${reading.讀法} 未收之由應以「${keyword}」起`);
+        t.ok(!VIGOR_READINGS.some(r => r.讀法 === reading.讀法),
+             `${reading.讀法} 不應同時出現在收錄清單`);
+    }
+
+    record(`九星旺相四家，各以自帶的天蓬算例反驗其對照表`, truncate(t.errors, 10));
+}
+
+
 
 function runVigorTest() {
     const t = createAsserter();
@@ -1592,38 +1744,32 @@ function runVigorTest() {
             t.ok(!!entry, `盤中應有${spec.星}`);
             if (!entry) continue;
             t.equal(entry.五行, spec.五行, `${spec.星}之五行`);
-            t.equal(entry.法竅, state,
-                `法竅：${spec.星}（${spec.五行}）於${spec[state]}月應為${state}`);
+            const faqiao = entry.諸家.find(x => x.讀法 === '法竅注本（旺相互易）');
+            t.ok(!!faqiao, `${spec.星} 應有法竅注本一讀`);
+            if (faqiao) {
+                t.equal(faqiao.狀態, state,
+                    `法竅注本：${spec.星}（${spec.五行}）於${spec[state]}月應為${state}`);
+            }
         }
     }
 
-    // 《統宗》天蓬一組
-    for (const [state, element] of Object.entries(TONGZONG_TIANPENG)) {
-        const chart = byElement[element];
-        if (!chart) continue;
-        const entry = assessVigor(chart).九星.find(s => s.星 === '天蓬');
-        t.equal(entry.統宗, state, `統宗：天蓬（水）於${element}月應為${state}`);
-    }
-
-    // 兩家恰在同類與我生上互換，克我則一致作囚
+    // 諸家並列：每顆星都要給滿四家，且克我一格四家一致作囚
     for (const element of ELEMENTS) {
         for (const entry of assessVigor(byElement[element]).九星) {
-            if (entry.關係 === '同類') {
-                t.equal(entry.法竅, '旺', '同類：法竅作旺');
-                t.equal(entry.統宗, '相', '同類：統宗作相');
-            }
-            if (entry.關係 === '我生') {
-                t.equal(entry.法竅, '相', '我生：法竅作相');
-                t.equal(entry.統宗, '旺', '我生：統宗作旺');
+            t.equal(entry.諸家.length, VIGOR_READINGS.length,
+                    `${entry.星} 應並列四家`);
+            for (const school of entry.諸家) {
+                t.ok(!!school.讀法 && !!school.狀態, `${entry.星} 的讀法與狀態`);
+                t.ok(!!school.出處 && !!school.出處.文, `${entry.星}（${school.讀法}）應帶出處`);
             }
             if (entry.關係 === '克我') {
-                t.equal(entry.法竅, '囚', '克我：兩家皆作囚');
-                t.equal(entry.統宗, '囚', '克我：兩家皆作囚');
+                const states = new Set(entry.諸家.map(x => x.狀態));
+                t.deepEqual([...states], ['囚'], '克我一格四家應一致作囚');
             }
         }
     }
 
-    record('九星旺相：《法竅》二十五格與《統宗》天蓬五格，兩家並列', t.errors.slice(0, 5));
+    record('九星旺相：四家並列，法竅注本二十五格逐格核對', t.errors.slice(0, 5));
 }
 
 /**
@@ -2919,6 +3065,7 @@ function runAllTests() {
     runShiGanKeYingTest();
     runTongzongFortyTest();
     runKeYingOnChartsTest();
+    runVigorReadingExampleTest();
     runVigorTest();
     runDoorVigorTest();
     runVigorFallbackTest();

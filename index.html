@@ -604,11 +604,18 @@ const App = (function() {
                 + (vigor.八節 ? '　八節屬' + vigor.八節.卦 + '卦，' + vigor.八節.旺門 + '旺' : '') + '</div>');
         }
 
-        parts.push('<div class="pattern-sub">九星（法竅／統宗兩家並列）</div>');
-        parts.push('<div class="keying-grid">' + vigor.九星.map(function(s) {
-            return '<div class="vigor-row"><span class="gong">' + s.宮 + '</span>' + s.星
-                + '<span class="st ' + cls(s.法竅) + '">' + s.法竅 + '</span>'
-                + '<span class="st ' + cls(s.統宗) + '">／' + s.統宗 + '</span></div>';
+        var readings = Qimen.VIGOR_READINGS;
+        // 諸家並列。狀態的順序即 VIGOR_READINGS 的順序，滑過可見各家出處。
+        parts.push('<div class="pattern-sub">九星（'
+            + readings.map(function (r) { return r.讀法; }).join('／') + '　四家並列）</div>');
+        parts.push('<div class="keying-grid">' + vigor.九星.map(function (s) {
+            var states = s.諸家.map(function (x, i) {
+                return '<span class="st ' + cls(x.狀態) + '" title="'
+                    + x.讀法 + '：' + x.出處.書 + '〈' + x.出處.篇 + '〉">'
+                    + (i ? '／' : '') + x.狀態 + '</span>';
+            }).join('');
+            return '<div class="vigor-row"><span class="gong">' + s.宮 + '</span>'
+                + s.星 + states + '</div>';
         }).join('') + '</div>');
 
         if (vigor.八門) {

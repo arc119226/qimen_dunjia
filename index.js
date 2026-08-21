@@ -180,7 +180,9 @@ export {
     detectLiuYiJiXing,
     detectJieLuKongWang,
     detectShiGanKeYing,
-    assessVigor
+    assessVigor,
+    VIGOR_READINGS,
+    VIGOR_READINGS_NOT_ADOPTED
 } from './patterns.js';
 
 // 匯出主控函數

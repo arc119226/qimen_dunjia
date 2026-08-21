@@ -252,6 +252,18 @@ almost character for character); 《法竅》's separate naming lives in `異名
 《統宗》〈奇門四十格〉 was **not** used to build it — its ten 十干克應 entries serve as an
 independent check in test.js.
 
+**九星旺相ships four readings out of at least seven in the corpus.** The admission bar is
+**a worked example you can check the mapping against** — each of the four carries its own
+天蓬水星 five-cell example, and test.js re-derives the mapping from the example. Keys are
+**not book names**: 《遁甲演義》 alone contains three incompatible readings, 《統宗》 two,
+《秘笈大全》 two, so "book X holds reading Y" is false for those books — attribution is
+per-chapter only. 旺 and 相 swap between readings, so picking any one as representative
+distorts. Three further readings are recorded in `VIGOR_READINGS_NOT_ADOPTED` with reasons
+(two have no worked example; one is positional rather than month-based and lacks 廢).
+《統宗》卷三's four-season table is **not** counted as evidence for any reading: 「春木相火旺…」
+admits two readings (is 春 the month or the 木 star?) that disagree in four of five cells, and
+the entry never says 星.
+
 **旺相休囚 is not a finding.** It decides how *heavy* a judgment is, not whether it fires
 (《法竅》: 「吉門有氣益吉，無氣減吉」), so it lives in `assessVigor(chart)` rather than
 `detectPatterns`. Two schools are returned side by side because 《法竅》 and 《統宗》
