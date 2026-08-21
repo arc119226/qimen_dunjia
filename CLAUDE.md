@@ -135,10 +135,22 @@ whole chart. The 時柱 follows via 五鼠遁 from whichever 日干 results (己
 so the 當日 branch derives the 時干 itself. 定局 is **not** affected — both 拆補 and 符頭
 key off the instant/calendar day, not the 日柱.
 
-Classical grounding is **suggestive, not decisive**: 《統宗》 dates 康熙五十六年夏至 to
-「五月十三日丙寅夜子初二刻」, attributing a 夜子 instant to the *current* day. But that is
-almanac date notation (a civil day runs midnight to midnight), which does not necessarily
-fix the 日柱 used for 起課. Recorded as a lead, not used to pick a side.
+**No book states the rule** — 「子初屬前日」-type definitions appear nowhere in the nine
+texts, and 「夜子」 occurs exactly once in the whole corpus. Both schools are inferred from
+usage, and the usages disagree:
+
+- **次日 (default)** — 《法竅》卷二〈論拆局補局〉 gives three 刻-count figures that are
+  **arithmetically checkable**, and only the 子初 (23:00) day-start reproduces them:
+  「計二十八時零一刻」(vs 27時5刻), 「雖少二時零三刻」(vs 1時7刻), 「子丑寅卯辰五時」
+  (vs 4時4刻). test.js recomputes all three. The 刻 mapping is calibrated by 《旨歸》's
+  「果於十點鐘亥正生女」 (亥正 = 22:00, hence 子初 = 23:00).
+- **當日** — 《統宗》〈置閏法〉 dates 夏至 to 「五月十三日丙寅夜子初二刻」, i.e. almanac
+  notation putting a 夜子 instant on the current day, self-consistent with its
+  「已超三日」 inclusive count. But almanac notation is about the *civil* day, not
+  necessarily the 日柱 used for 起課.
+
+Default is 次日 because its evidence is computable; both ship because the texts never
+adjudicate.
 
 **Basis declarations (`TIME_BASIS`, `CALENDAR_BASIS`).** Every auto-generated chart carries
 two fields that state what the chart is measured against. Both **only declare — they change no

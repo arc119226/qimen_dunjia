@@ -2997,6 +2997,86 @@ function jiaZiIndex(ganZhi) {
     return -1;
 }
 
+/**
+ * 《法竅》卷二〈論拆局補局〉的三個刻數算例——可用算術判定換日之界
+ *
+ * 九部書**查無明文**：沒有任何一部書寫出「子初屬前日」「子正方換日」之類的
+ * 定義句，「夜子」二字全語料只出現一次。兩派都是自用例反推的。
+ *
+ * 但《法竅》這三段是**可被算術檢驗**的——它自報時辰與刻數，只有一種換日法
+ * 對得上。這比《統宗》那種紀日寫法的旁證硬得多，也是本專案以「次日派」
+ * 為預設的依據。
+ *
+ * 時刻對照（時憲書九十六刻制，一時辰＝八刻＝二小時，一刻＝十五分）由
+ * 《奇門旨歸》卷三十八「果於十點鐘亥正生女」校準：亥正＝22:00，
+ * 故亥時 21:00–23:00、子初 23:00、子正 00:00。
+ */
+const FAQIAO_HOUR_ARITHMETIC = [
+    {
+        原文: '二十二日己丑，自子時起至二十四日辛卯辰初一刻止，計二十八時零一刻',
+        // 己丑之子時起 → 辛卯辰初一刻（該曆日 07:15，己丑曆日之後二日）
+        終: 2 * 1440 + 7 * 60 + 15,
+        子初起: -60,        // 前一曆日 23:00
+        子正起: 0,          // 己丑曆日 00:00
+        時: 28, 刻: 1
+    },
+    {
+        原文: '子丑二時與寅初之三刻……雖少二時零三刻',
+        終: 3 * 60 + 45,    // 寅初三刻 03:45
+        子初起: -60,
+        子正起: 0,
+        時: 2, 刻: 3
+    },
+    {
+        原文: '甲子日之子丑寅卯辰五時',
+        終: 9 * 60,         // 五個整時辰終於巳時之始 09:00，非終於節氣時刻
+        子初起: -60,
+        子正起: 0,
+        時: 5, 刻: 0
+    }
+];
+
+function runNightZiClassicalArithmeticTest() {
+    const t = createAsserter();
+    const 時辰 = 120;
+    const 刻 = 15;
+
+    for (const kase of FAQIAO_HOUR_ARITHMETIC) {
+        const expected = kase.時 * 時辰 + kase.刻 * 刻;
+
+        // 子初法（次日派）：該日之子時起於前一曆日二十三時
+        const byZiChu = kase.終 - kase.子初起;
+        t.equal(byZiChu, expected,
+                `子初法應得「${kase.時}時${kase.刻}刻」——${kase.原文}`);
+
+        // 子正法（當日派）：該日始於零時
+        const byZiZheng = kase.終 - kase.子正起;
+        t.ok(byZiZheng !== expected,
+             `子正法不應對得上「${kase.時}時${kase.刻}刻」，否則此算例無從判別兩派——${kase.原文}`);
+
+        // 兩法之差恰為一小時，即夜子那半個時辰
+        t.equal(byZiChu - byZiZheng, 60,
+                `兩法之差應恰為夜子那一小時——${kase.原文}`);
+    }
+
+    t.equal(FAQIAO_HOUR_ARITHMETIC.length, 3, '《法竅》三個算例俱應比對');
+
+    // 程式的預設（次日派）必須真的把二十三時歸入次日之日柱——
+    // 這正是上列算術所要求的換日之界
+    const late = chartToObject(generateChartByDatetime('2024011523'));
+    const nextNoon = chartToObject(generateChartByDatetime('2024011612'));
+    t.equal(late['夜子時'], '次日', '預設應為次日派');
+    t.equal(late['日柱'], nextNoon['日柱'],
+            '次日派：一月十五日二十三時的日柱，應與一月十六日者相同');
+
+    const sameDaySchool = chartToObject(generateChartByDatetime('2024011523', { 夜子時: '當日' }));
+    const sameNoon = chartToObject(generateChartByDatetime('2024011512'));
+    t.equal(sameDaySchool['日柱'], sameNoon['日柱'],
+            '當日派：一月十五日二十三時的日柱，應與同日午時者相同');
+
+    record('《法竅》三個刻數算例：只有子初法（次日派）對得上', truncate(t.errors, 8));
+}
+
 function runNightZiTest() {
     const t = createAsserter();
 
@@ -3374,6 +3454,7 @@ function runAllTests() {
     runWuBuYuConstructionTest();
     runWuBuYuTableTest();
 
+    runNightZiClassicalArithmeticTest();
     runNightZiTest();
 
     section('第三部分之八：基準自陳');
