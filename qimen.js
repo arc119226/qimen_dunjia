@@ -371,6 +371,82 @@ function parseDatetime(datetime) {
 }
 
 /**
+ * 夜子時：日柱換日之界的兩派
+ *
+ * 夜間十一時至十二時（子時前半）究竟算**當日**還是**次日**，兩派並存，
+ * 而這不是邊角——它佔全部時辰的十二分之一（8.3%），且日柱一翻，
+ * 旬首、符首、值符、值使、拆補法的節後天數全部連鎖改變，是整張盤改。
+ *
+ * 兩派給的是**兩張完全不同的盤**，無法像格局的異說那樣在同一輸出中並列，
+ * 故比照定局法作為選項處理，並在輸出中自陳所用者。
+ *
+ * 時柱隨日柱而變（五鼠遁「甲己還加甲，乙庚丙作初，丙辛從戊起，
+ * 丁壬庚子居，戊癸壬子頭」）。以 2024-01-15 23:00 為例：
+ *
+ *   次日派：日柱己卯、時柱甲子（己日子時，甲己還加甲）
+ *   當日派：日柱戊寅、時柱壬子（戊日子時，戊癸壬子頭）
+ *
+ * lunar-javascript 的 `getTimeInGanZhi()` 綁在 `getDayInGanZhiExact()` 上，
+ * 故當日派的時干須另行由五鼠遁推得。
+ */
+const YE_ZI_SHI_SCHOOLS = Object.freeze(['次日', '當日']);
+
+/** 五鼠遁：日干 → 子時之干 */
+const WU_SHU_DUN = Object.freeze({
+    甲: '甲', 己: '甲', 乙: '丙', 庚: '丙', 丙: '戊',
+    辛: '戊', 丁: '庚', 壬: '庚', 戊: '壬', 癸: '壬'
+});
+
+const TEN_GANS = Object.freeze(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']);
+const TWELVE_ZHIS = Object.freeze(['子', '丑', '寅', '卯', '辰', '巳',
+                                   '午', '未', '申', '酉', '戌', '亥']);
+
+/** 由日干與時支推時柱（五鼠遁） */
+function timePillarFrom(dayGan, hourZhi) {
+    const start = WU_SHU_DUN[dayGan];
+    if (!start) throw new Error(`未知的日干：${dayGan}`);
+    const offset = TWELVE_ZHIS.indexOf(hourZhi);
+    if (offset < 0) throw new Error(`未知的時支：${hourZhi}`);
+    return TEN_GANS[(TEN_GANS.indexOf(start) + offset) % 10] + hourZhi;
+}
+
+/**
+ * 依所選之派取日柱與時柱
+ *
+ * @param {Object} lunar - lunar-javascript 的 Lunar 對象
+ * @param {string} school - '次日'（預設）或 '當日'
+ * @returns {{日柱: string, 時柱: string, 夜子時: string, 換日: boolean}}
+ */
+function resolveDayAndTimePillar(lunar, school) {
+    if (!YE_ZI_SHI_SCHOOLS.includes(school)) {
+        throw new Error(`未知的夜子時流派：${school}（可用：${YE_ZI_SHI_SCHOOLS.join('、')}）`);
+    }
+
+    // 兩者相異，即代表所問時刻落在夜子時（夜間十一時至十二時）
+    const nextDay = lunar.getDayInGanZhiExact();
+    const sameDay = lunar.getDayInGanZhiExact2();
+    const inNightZi = nextDay !== sameDay;
+
+    if (school === '次日' || !inNightZi) {
+        return {
+            日柱: nextDay,
+            時柱: lunar.getTimeInGanZhi(),
+            夜子時: school,
+            落於夜子時: inNightZi
+        };
+    }
+
+    // 當日派：日柱不進位，時柱亦須改由當日之干起五鼠遁
+    const hourZhi = lunar.getTimeInGanZhi()[1];
+    return {
+        日柱: sameDay,
+        時柱: timePillarFrom(sameDay[0], hourZhi),
+        夜子時: school,
+        落於夜子時: true
+    };
+}
+
+/**
  * 定局法：由選項挑選定局函數
  *
  * 拆補法（預設）自節氣交接時刻起算天數；符頭法以甲己日為符頭、行超神接氣置閏，
@@ -387,6 +463,7 @@ const JU_METHODS = Object.freeze({
  * @param {Solar} solar - lunar-javascript 的 Solar 物件
  * @param {Object} [options] - 選項
  * @param {string} [options.定局法] - 「拆補」（預設）或「符頭」
+ * @param {string} [options.夜子時] - 「次日」（預設）或「當日」
  * @returns {Object} 包含盤局和定局資訊的物件
  */
 function generateChartFromSolar(solar, options = {}) {
@@ -395,8 +472,10 @@ function generateChartFromSolar(solar, options = {}) {
     // 取得四柱（使用精確計算，考慮節氣交接）
     const yearPillar = lunar.getYearInGanZhiExact();
     const monthPillar = lunar.getMonthInGanZhiExact();
-    const dayPillar = lunar.getDayInGanZhiExact();
-    const timePillar = lunar.getTimeInGanZhi();
+    // 夜子時的日柱換日之界有兩派，兩派給的是兩張完全不同的盤，故作為選項
+    const nightZi = resolveDayAndTimePillar(lunar, options.夜子時 || '次日');
+    const dayPillar = nightZi.日柱;
+    const timePillar = nightZi.時柱;
 
     // 定局
     const methodName = options.定局法 || '拆補';
@@ -419,6 +498,7 @@ function generateChartFromSolar(solar, options = {}) {
     return {
         chart,
         juResult,
+        nightZi,
         solar,
         lunar
     };
@@ -437,6 +517,8 @@ function generateChartFromSolar(solar, options = {}) {
  * @param {Object} [options] - 選項
  * @param {string} [options.定局法] - 「拆補」（預設，自節氣交接時刻起算）或
  *                                    「符頭」（甲己符頭，超神接氣置閏，典籍主流）
+ * @param {string} [options.夜子時] - 夜間十一時至十二時的日柱歸屬：
+ *                                    「次日」（預設）或「當日」。兩派給出兩張不同的盤
  * @returns {Map} 完整的盤局結果，額外包含節氣、三元等定局資訊
  *
  * @example
@@ -455,12 +537,14 @@ export function generateChartByDatetime(datetime, options = {}) {
     const solar = Solar.fromYmdHms(year, month, day, hour, 0, 0);
 
     // 生成盤局
-    const { chart, juResult } = generateChartFromSolar(solar, options);
+    const { chart, juResult, nightZi } = generateChartFromSolar(solar, options);
 
     // 附加定局資訊到結果
     chart.set('節氣', juResult.jieQiName);
     chart.set('三元', juResult.yuanName);
     chart.set('定局法', juResult.定局法 || '拆補');
+    chart.set('夜子時', nightZi.夜子時);
+    chart.set('落於夜子時', nightZi.落於夜子時);
 
     // 基準自陳：這張盤的節氣取自哪一種曆、輸入被當成哪一種時。
     // 兩者都不改動任何一格盤面，但不宣告，使用者就無從得知自己拿到的是什麼。

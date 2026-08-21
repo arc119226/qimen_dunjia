@@ -126,6 +126,20 @@ Verified against 《奇門遁甲統宗》〈以旬首取符使法〉: "甲辰在
 
 **天禽 never moves** in the 九星 array — `rotateMapping` pins it at index 4. It is 寄坤 and travels with 天芮. Therefore `getZhiFuStarPosition()` looks up 天芮 when 值符 is 天禽; reading 天禽's literal array index would report 「中」 and contradict both classics, which require 八神's 值符 to share the palace with the 九星 值符 (統宗〈小值符加大值符法〉, 發凡〈小直符加大直符〉). `天禽寄宮` reports the same palace as an arrow.
 
+**夜子時 (the 23:00–24:00 hour) is an option, not a silent choice.**
+`generateChartByDatetime(datetime, {夜子時})` takes `'次日'` (default, unchanged behaviour)
+or `'當日'`. It decides whether that hour's 日柱 belongs to the current or the next day —
+**1/12 of all hours**, and flipping the 日柱 cascades into 旬首/符首/值符/值使, i.e. the
+whole chart. The 時柱 follows via 五鼠遁 from whichever 日干 results (己日子時=甲子 vs
+戊日子時=壬子); lunar-javascript's `getTimeInGanZhi()` is bound to `getDayInGanZhiExact()`,
+so the 當日 branch derives the 時干 itself. 定局 is **not** affected — both 拆補 and 符頭
+key off the instant/calendar day, not the 日柱.
+
+Classical grounding is **suggestive, not decisive**: 《統宗》 dates 康熙五十六年夏至 to
+「五月十三日丙寅夜子初二刻」, attributing a 夜子 instant to the *current* day. But that is
+almanac date notation (a civil day runs midnight to midnight), which does not necessarily
+fix the 日柱 used for 起課. Recorded as a lead, not used to pick a side.
+
 **Basis declarations (`TIME_BASIS`, `CALENDAR_BASIS`).** Every auto-generated chart carries
 two fields that state what the chart is measured against. Both **only declare — they change no
 palace value** — and both are externally falsifiable in test.js, deliberately:

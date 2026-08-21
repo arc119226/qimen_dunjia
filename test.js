@@ -2963,6 +2963,125 @@ function runWuBuYuTableTest() {
 }
 
 // ============================================================================
+// 夜子時：日柱換日之界的兩派
+// ============================================================================
+
+/**
+ * 夜子時佔全部時辰的十二分之一，而日柱一翻，整張盤都變
+ *
+ * 專案原本用 `getDayInGanZhiExact()`（夜子算次日）而未言明，等於替使用者
+ * 選了一派。這與六儀擊刑那種學術性異說不同——它影響 8.3% 的時辰，
+ * 且旬首、符首、值符、值使全部連鎖改變。
+ *
+ * 兩派給的是**兩張完全不同的盤**，無法在同一輸出中並列，故比照定局法
+ * 作為選項，並在輸出中自陳所用者。
+ */
+
+/** 五鼠遁：日干 → 子時之干。「甲己還加甲，乙庚丙作初，丙辛從戊起，丁壬庚子居，戊癸壬子頭」 */
+const YE_ZI_WU_SHU_DUN = {
+    甲: '甲', 己: '甲', 乙: '丙', 庚: '丙', 丙: '戊',
+    辛: '戊', 丁: '庚', 壬: '庚', 戊: '壬', 癸: '壬'
+};
+
+const SIXTY_JIAZI_GANS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+const SIXTY_JIAZI_ZHIS = ['子', '丑', '寅', '卯', '辰', '巳',
+                          '午', '未', '申', '酉', '戌', '亥'];
+
+/** 干支在六十甲子中的序 */
+function jiaZiIndex(ganZhi) {
+    const gan = SIXTY_JIAZI_GANS.indexOf(ganZhi[0]);
+    const zhi = SIXTY_JIAZI_ZHIS.indexOf(ganZhi[1]);
+    for (let i = 0; i < 60; i++) {
+        if (i % 10 === gan && i % 12 === zhi) return i;
+    }
+    return -1;
+}
+
+function runNightZiTest() {
+    const t = createAsserter();
+
+    // 一、非夜子時：兩派必須完全相同，連五層盤面都不得有一格之差
+    for (const hour of ['00', '02', '06', '12', '18', '22']) {
+        const datetime = '20240115' + hour;
+        const next = chartToObject(generateChartByDatetime(datetime, { 夜子時: '次日' }));
+        const same = chartToObject(generateChartByDatetime(datetime, { 夜子時: '當日' }));
+        t.equal(same['落於夜子時'], false, `${hour} 時不應標為夜子時`);
+        for (const field of ['日柱', '時柱', '旬首', '符首', '值符', '值使']) {
+            t.equal(same[field], next[field], `${hour} 時兩派的 ${field} 應相同`);
+        }
+        for (const field of ['地盤', '天盤', '天門', '九星', '八神']) {
+            t.deepEqual(same[field], next[field], `${hour} 時兩派的 ${field} 應相同`);
+        }
+    }
+
+    // 二、夜子時：日柱恰差一日，時柱依各自之日干起五鼠遁
+    let nightCount = 0;
+    for (let month = 1; month <= 12; month++) {
+        for (const day of [3, 11, 19, 27]) {
+            const datetime = `2024${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}23`;
+            const next = chartToObject(generateChartByDatetime(datetime, { 夜子時: '次日' }));
+            const same = chartToObject(generateChartByDatetime(datetime, { 夜子時: '當日' }));
+            const where = `${datetime}`;
+            nightCount++;
+
+            t.equal(next['落於夜子時'], true, `${where} 應標為夜子時`);
+            t.equal(same['落於夜子時'], true, `${where} 應標為夜子時`);
+
+            // 日柱恰差一日
+            const gap = (jiaZiIndex(next['日柱']) - jiaZiIndex(same['日柱']) + 60) % 60;
+            t.equal(gap, 1, `${where} 次日派的日柱應恰為當日派的次一日`);
+
+            // 時支必為子，時干依各自之日干起五鼠遁
+            for (const [school, obj] of [['次日', next], ['當日', same]]) {
+                t.equal(obj['時柱'][1], '子', `${where}（${school}）時支應為子`);
+                t.equal(obj['時柱'][0], YE_ZI_WU_SHU_DUN[obj['日柱'][0]],
+                        `${where}（${school}）時干應由日干${obj['日柱'][0]}起五鼠遁`);
+                t.equal(obj['夜子時'], school, `${where} 應自陳所用之派`);
+            }
+
+            // 兩派確實給出不同的盤——若相同，這個選項就沒有存在意義
+            t.ok(next['旬首'] !== same['旬首'] || next['符首'] !== same['符首']
+                 || next['值符'] !== same['值符'] || next['值使'] !== same['值使'],
+                 `${where} 兩派應給出不同的時間樞紐`);
+        }
+    }
+    t.equal(nightCount, 48, '夜子時取樣數');
+
+    // 三、預設為次日——行為不變，升級不破壞既有使用者
+    const implicit = chartToObject(generateChartByDatetime('2024011523'));
+    const explicit = chartToObject(generateChartByDatetime('2024011523', { 夜子時: '次日' }));
+    t.equal(implicit['夜子時'], '次日', '預設應為次日派');
+    for (const field of ['日柱', '時柱', '旬首', '符首', '值符', '值使']) {
+        t.equal(implicit[field], explicit[field], `預設與明寫「次日」的 ${field} 應相同`);
+    }
+
+    // 四、定局不受夜子時之選影響——拆補與符頭皆以時刻／曆日為準，非以日柱
+    for (const 定局法 of ['拆補', '符頭']) {
+        const next = chartToObject(generateChartByDatetime('2024011523', { 定局法, 夜子時: '次日' }));
+        const same = chartToObject(generateChartByDatetime('2024011523', { 定局法, 夜子時: '當日' }));
+        for (const field of ['節氣', '三元', '陰陽', '局數']) {
+            t.equal(same[field], next[field],
+                    `${定局法}法的 ${field} 不應隨夜子時之選改變`);
+        }
+    }
+
+    // 五、未知流派須拋錯而非默默取預設
+    let threw = null;
+    try {
+        generateChartByDatetime('2024011523', { 夜子時: '早子' });
+    } catch (error) {
+        threw = error.message;
+    }
+    t.ok(threw !== null, '未知的夜子時流派應拋錯');
+    t.ok(threw !== null && threw.includes('早子'), '錯誤訊息應指出所傳之值');
+    t.ok(threw !== null && threw.includes('次日') && threw.includes('當日'),
+         '錯誤訊息應列出可用的流派');
+
+    record(`夜子時兩派（${nightCount} 個夜子時取樣，日柱恰差一日、時柱各依五鼠遁）`,
+           truncate(t.errors, 10));
+}
+
+// ============================================================================
 // 基準自陳
 // ============================================================================
 
@@ -3254,6 +3373,8 @@ function runAllTests() {
     section('第三部分之七之二：五不遇時');
     runWuBuYuConstructionTest();
     runWuBuYuTableTest();
+
+    runNightZiTest();
 
     section('第三部分之八：基準自陳');
     runBasisDeclarationTest();

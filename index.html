@@ -313,6 +313,13 @@
                         <option value="符頭">符頭法（超神接氣置閏）</option>
                     </select>
                 </div>
+                <div class="input-group">
+                    <label for="inputNightZi">夜子時</label>
+                    <select id="inputNightZi">
+                        <option value="次日">日柱算次日</option>
+                        <option value="當日">日柱算當日</option>
+                    </select>
+                </div>
                 <button class="btn" onclick="App.generate()">起盤</button>
                 <button class="btn btn-secondary" onclick="App.setNow()">當前時間</button>
             </div>
@@ -652,7 +659,9 @@ const App = (function() {
             { key: '時干', val: chart.時干 },
             { key: '陰陽遁', val: chart.陰陽 + '遁' },
             { key: '局數', val: chart.局數 + '局' }
-        ]);
+        ].concat(chart.落於夜子時
+            ? [{ key: '夜子時', val: '日柱算' + chart.夜子時 + '（此刻落於夜子時，兩派日柱相異）' }]
+            : []));
 
         const juRows = [
             { key: '定局法', val: chart.定局法 + '法' },
@@ -733,8 +742,9 @@ const App = (function() {
 
             // 四柱、定局、五層盤面全部由函式庫一次完成
             const method = $('inputMethod').value;
+            const nightZi = $('inputNightZi').value;
             const chart = Qimen.chartToObject(
-                Qimen.generateChartByDatetime(datetime, { 定局法: method })
+                Qimen.generateChartByDatetime(datetime, { 定局法: method, 夜子時: nightZi })
             );
 
             renderChart(chart);
