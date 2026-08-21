@@ -140,6 +140,7 @@ vite.config.ts.timestamp-*
 
 # Release 附件（由 npm run build 後手動打包，不入版控）
 qimen-dunjia-v*.zip
+RELEASE_NOTES_v*.md
 
 # Claude Code
 .claude/
