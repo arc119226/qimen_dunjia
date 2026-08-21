@@ -206,6 +206,65 @@ function finding(格, 吉凶, 宮, 細節, 出處, 讀法) {
 }
 
 // ============================================================================
+// 入口守衛
+// ============================================================================
+
+/**
+ * 判斷層吃的是 `chartToObject()` 的結果，不是起盤函數回傳的 Map
+ *
+ * 漏了那一步不會得到任何提示，這是主 API 形狀上最容易踩的一階坑——
+ * `generateChartByDatetime` 回傳 Map，判斷層要物件，兩者長得一樣可傳。
+ *
+ * 但真正非守不可的理由不是 DX，是**可信度**：缺欄位時 `detectFanYin`
+ * 不會拋錯，而是憑空產出一則「反吟・凶」，細節寫著
+ * 「值符undefined由本位undefined宮飛至對宮undefined宮」，且該假判斷帶著
+ * 一條查證屬實的煙波釣叟歌引文。對一個以「每則判斷帶出處、不亂講」為賣點的
+ * 專案，發出附真實出處的假凶格是可信度層級的缺陷。
+ *
+ * **不自動把 Map 轉成物件。** 那會把 Map 固化成第二種合法輸入形狀，
+ * 稀釋「判定器是 `chartToObject()` 輸出的純函數」這條原則；而且轉換也修不到
+ * 「形狀對但缺欄位」的情形。此處明確拋錯，作法比照 `qimen.js` 的
+ * `normalizeChartInput`。
+ */
+function describeInput(value) {
+    if (value === null) return 'null';
+    if (Array.isArray(value)) return '陣列';
+    if (value instanceof Map) return 'Map';
+    return typeof value;
+}
+
+/**
+ * 檢查盤面物件具備該判定器所需的欄位
+ *
+ * 只檢查該判定器**實際會讀**的欄位，故以部分盤面做單元測試仍可行
+ * （如 `detectMenPo({ 天門: [...] })`）。
+ *
+ * @param {Object} chart - 應為 chartToObject() 的結果
+ * @param {Array<string>} fields - 該判定器所需的欄位
+ * @param {string} caller - 判定器名稱，用於錯誤訊息
+ */
+function requireChartFields(chart, fields, caller) {
+    if (chart instanceof Map) {
+        throw new Error(
+            `${caller}：判斷層需要 chartToObject(chart) 的結果，` +
+            `而非起盤函數回傳的 Map。請先 const obj = chartToObject(chart) 再傳入。`
+        );
+    }
+    if (!chart || typeof chart !== 'object' || Array.isArray(chart)) {
+        throw new Error(
+            `${caller}：判斷層需要一個盤面物件（chartToObject 的結果），實得 ${describeInput(chart)}。`
+        );
+    }
+    const missing = fields.filter(field => chart[field] === undefined || chart[field] === null);
+    if (missing.length > 0) {
+        throw new Error(
+            `${caller}：盤面缺少必要欄位「${missing.join('」「')}」。` +
+            `判斷層需要 chartToObject(chart) 的完整結果。`
+        );
+    }
+}
+
+// ============================================================================
 // 各條格局
 // ============================================================================
 
@@ -219,6 +278,7 @@ function finding(格, 吉凶, 宮, 細節, 出處, 讀法) {
  * @returns {Array<Object>} 判定結果
  */
 export function detectFuYin(chart) {
+    requireChartFields(chart, ['天盤', '地盤'], 'detectFuYin');
     const same = chart['天盤'].every((gan, index) => gan === chart['地盤'][index]);
     if (!same) return [];
     return [finding('伏吟', '凶', null, '天盤與地盤全同，時干與符首同宮', SOURCES.旨歸_伏吟)];
@@ -234,6 +294,7 @@ export function detectFuYin(chart) {
  * @returns {Array<Object>} 判定結果
  */
 export function detectFanYin(chart) {
+    requireChartFields(chart, ['值符', '值符落宮'], 'detectFanYin');
     const zhongStar = QIMEN_STARS[PALACE.ZHONG];
     const star = chart['值符'] === zhongStar ? QIMEN_STARS[ZHONG_SUBSTITUTE] : chart['值符'];
     const home = palaceName(QIMEN_STARS.indexOf(star));
@@ -297,6 +358,7 @@ const MEN_GONG_RELATIONS = Object.freeze([
  * @returns {Array<Object>} 判定結果
  */
 export function detectMenPo(chart) {
+    requireChartFields(chart, ['天門'], 'detectMenPo');
     const results = [];
     chart['天門'].forEach((door, index) => {
         if (!door) return;
@@ -373,6 +435,7 @@ const WU_BU_YU_PILLARS = Object.freeze({
  * @returns {Array<Object>} 判定結果
  */
 export function detectWuBuYu(chart) {
+    requireChartFields(chart, ['日柱', '時干', '時柱'], 'detectWuBuYu');
     const dayGan = chart['日柱'][0];
     const hourGan = chart['時干'];
     const hourPillar = chart['時柱'];
@@ -411,6 +474,7 @@ const DE_SHI = Object.freeze({
  * @returns {Array<Object>} 判定結果
  */
 export function detectSanQiDeShi(chart) {
+    requireChartFields(chart, ['天盤', '地盤'], 'detectSanQiDeShi');
     const results = [];
     for (const [qi, yis] of Object.entries(DE_SHI)) {
         const index = chart['天盤'].indexOf(qi);
@@ -455,6 +519,7 @@ const JI_XING_NOTE = Object.freeze({
  * @returns {Array<Object>} 判定結果
  */
 export function detectLiuYiJiXing(chart) {
+    requireChartFields(chart, ['天盤', '符首'], 'detectLiuYiJiXing');
     const results = [];
     for (const [yi, palace] of Object.entries(JI_XING)) {
         const index = chart['天盤'].indexOf(yi);
@@ -495,6 +560,7 @@ const RU_MU = Object.freeze([
  * @returns {Array<Object>} 判定結果
  */
 export function detectSanQiRuMu(chart) {
+    requireChartFields(chart, ['天盤'], 'detectSanQiRuMu');
     const results = [];
     for (const rule of RU_MU) {
         const index = chart['天盤'].indexOf(rule.奇);
@@ -537,6 +603,7 @@ const SAN_DUN = Object.freeze([
  * @returns {Array<Object>} 判定結果
  */
 export function detectSanDun(chart) {
+    requireChartFields(chart, ['天盤', '地盤', '天門', '八神'], 'detectSanDun');
     const results = [];
     for (const rule of SAN_DUN) {
         for (let index = 0; index < 9; index++) {
@@ -581,6 +648,7 @@ const JIE_LU = Object.freeze({
  * @returns {Array<Object>} 判定結果
  */
 export function detectJieLuKongWang(chart) {
+    requireChartFields(chart, ['日柱', '時干', '時柱'], 'detectJieLuKongWang');
     const dayGan = chart['日柱'][0];
     const hourZhi = chart['時柱'][1];
     const blocked = JIE_LU[dayGan];
@@ -801,6 +869,7 @@ const KE_YING_ALT = Object.freeze({
  * @returns {Array<Object>} 九宮各有一格，中宮天地盤同干故亦計入
  */
 export function detectShiGanKeYing(chart) {
+    requireChartFields(chart, ['天盤', '地盤'], 'detectShiGanKeYing');
     const results = [];
     for (let index = 0; index < 9; index++) {
         const top = chart['天盤'][index];
@@ -989,6 +1058,7 @@ const DOOR_VIGOR_CYCLE = Object.freeze(['旺', '絕', '胎', '沐', '死', '囚'
  * vigor.九星[0];  // { 宮: '巽', 星: '天任', 五行: '土', 關係: '我克', 法竅: '休', 統宗: '廢' }
  */
 export function assessVigor(chart) {
+    requireChartFields(chart, ['九星'], 'assessVigor');
     const monthZhi = chart['月柱'] ? chart['月柱'][1] : null;
     const monthElement = monthZhi ? ZHI_ELEMENTS[monthZhi] : null;
 
@@ -1065,7 +1135,15 @@ const DETECTORS = Object.freeze([
  *     console.log(item.格, item.宮 || '（全盤）', item.細節);
  * }
  */
+/** 完整盤面判定所需的全部欄位——即各判定器所需欄位的聯集 */
+const PATTERN_REQUIRED_FIELDS = Object.freeze([
+    '天盤', '地盤', '天門', '八神', '值符', '值符落宮', '符首', '日柱', '時干', '時柱'
+]);
+
 export function detectPatterns(chart) {
+    // 在總入口先擋一次，讓錯誤訊息一次列出所有缺欄位，
+    // 而不是取決於哪個判定器先跑到
+    requireChartFields(chart, PATTERN_REQUIRED_FIELDS, 'detectPatterns');
     return DETECTORS.flatMap(detect => detect(chart));
 }
 

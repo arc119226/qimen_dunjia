@@ -46,6 +46,8 @@ import {
     detectLiuYiJiXing,
     detectWuBuYu,
     detectMenPo,
+    detectFuYin,
+    detectFanYin,
     getFuTouChainForRange,
     FU_TOU_ZHENG_SHOU_ANCHOR,
     FU_TOU_LEAP_THRESHOLD_VARIANT,
@@ -2299,6 +2301,101 @@ function runJuMethodOptionTests() {
 }
 
 // ============================================================================
+// 判斷層的入口守衛
+// ============================================================================
+
+/**
+ * 守衛的價值不在 DX，在可信度
+ *
+ * 修正前 `detectFanYin({})` 不拋錯，而是憑空產出一則「反吟・凶」，
+ * 細節寫著「值符undefined由本位undefined宮飛至對宮undefined宮」，
+ * 且該假判斷帶著一條查證屬實的煙波釣叟歌引文。對一個以「每則判斷帶出處、
+ * 不亂講」為賣點的專案，發出**附真實出處的假凶格**是可信度層級的缺陷。
+ *
+ * 測試斷言**錯誤訊息的內容**而非只斷言有拋錯——若只斷言拋錯，
+ * 拿掉守衛之後仍會拋 TypeError，變異測試照樣是綠的。
+ */
+function throwsWith(fn) {
+    try {
+        fn();
+        return null;
+    } catch (error) {
+        return error.message;
+    }
+}
+
+/** 各判定器所需的欄位——與 patterns.js 的守衛互為對照 */
+const DETECTOR_REQUIRED_FIELDS = [
+    { 名: 'detectFuYin', fn: detectFuYin, 欄位: ['天盤', '地盤'] },
+    { 名: 'detectFanYin', fn: detectFanYin, 欄位: ['值符', '值符落宮'] },
+    { 名: 'detectMenPo', fn: detectMenPo, 欄位: ['天門'] },
+    { 名: 'detectWuBuYu', fn: detectWuBuYu, 欄位: ['日柱', '時干', '時柱'] },
+    { 名: 'detectSanQiRuMu', fn: detectSanQiRuMu, 欄位: ['天盤'] },
+    { 名: 'detectSanDun', fn: detectSanDun, 欄位: ['天盤', '地盤', '天門', '八神'] },
+    { 名: 'detectLiuYiJiXing', fn: detectLiuYiJiXing, 欄位: ['天盤', '符首'] },
+    { 名: 'detectJieLuKongWang', fn: detectJieLuKongWang, 欄位: ['日柱', '時干', '時柱'] },
+    { 名: 'detectShiGanKeYing', fn: detectShiGanKeYing, 欄位: ['天盤', '地盤'] },
+    { 名: 'assessVigor', fn: assessVigor, 欄位: ['九星'] }
+];
+
+function runJudgementGuardTest() {
+    const t = createAsserter();
+
+    // 一、把起盤函數的 Map 直接丟進來——最容易犯的一階錯
+    const mapMessage = throwsWith(() => detectPatterns(generateChartByDatetime('2024011510')));
+    t.ok(mapMessage !== null, 'detectPatterns 收到 Map 應拋錯');
+    t.ok(mapMessage !== null && mapMessage.includes('chartToObject'),
+         `錯誤訊息應指出解法 chartToObject，實得：${mapMessage}`);
+    t.ok(mapMessage !== null && mapMessage.includes('Map'),
+         `錯誤訊息應指出收到的是 Map，實得：${mapMessage}`);
+
+    // 二、不得自動把 Map 轉成物件——那會把 Map 固化成第二種合法輸入形狀
+    t.ok(throwsWith(() => detectPatterns(new Map())) !== null,
+         '空 Map 亦應拋錯，而非被默默轉換');
+
+    // 三、型別不對
+    for (const [input, 描述] of [[null, 'null'], [undefined, 'undefined'],
+                                  [[], '陣列'], ['盤', 'string']]) {
+        const message = throwsWith(() => detectPatterns(input));
+        t.ok(message !== null, `detectPatterns(${描述}) 應拋錯`);
+        t.ok(message !== null && message.includes('detectPatterns'),
+             `${描述} 的錯誤訊息應指名判定器`);
+    }
+
+    // 四、逐一驗每個判定器：缺欄位時必須拋錯，且訊息要指名缺的是哪一欄
+    for (const spec of DETECTOR_REQUIRED_FIELDS) {
+        const message = throwsWith(() => spec.fn({}));
+        t.ok(message !== null, `${spec.名}({}) 應拋錯而非產出判定`);
+        if (message === null) continue;
+        t.ok(message.includes(spec.名), `${spec.名} 的錯誤訊息應指名自己`);
+        for (const field of spec.欄位) {
+            t.ok(message.includes(field),
+                 `${spec.名} 的錯誤訊息應指出缺少「${field}」，實得：${message}`);
+        }
+    }
+
+    // 五、缺一欄也要擋——不能只擋全空
+    const partial = throwsWith(() => detectFanYin({ 值符: '天蓬' }));
+    t.ok(partial !== null, '只給一半欄位仍應拋錯');
+    t.ok(partial !== null && partial.includes('值符落宮') && !partial.includes('「值符」'),
+         `錯誤訊息應只列真正缺的那一欄，實得：${partial}`);
+
+    // 六、正常路徑不受影響
+    const chart = chartToObject(generateChartByDatetime('2024011510'));
+    t.ok(detectPatterns(chart).length > 0, '正常盤面應照常判定');
+    t.ok(assessVigor(chart).九星.length === 9, '正常盤面的旺相應照常評估');
+
+    // 七、以部分盤面做單元測試仍可行——守衛只檢查該判定器實際會讀的欄位
+    t.ok(Array.isArray(detectMenPo({ 天門: chart['天門'] })),
+         '只給天門即可單獨測門迫');
+    t.ok(Array.isArray(detectWuBuYu({ 日柱: '甲子', 時干: '庚', 時柱: '庚午' })),
+         '只給日柱時干時柱即可單獨測五不遇時');
+
+    record(`判斷層入口守衛（${DETECTOR_REQUIRED_FIELDS.length} 個判定器逐一驗）`,
+           truncate(t.errors, 10));
+}
+
+// ============================================================================
 // 十干克應的斷語與外部錨點
 // ============================================================================
 
@@ -3149,6 +3246,7 @@ function runAllTests() {
 
     runMenGongRelationTest();
 
+    runJudgementGuardTest();
     runKeYingJudgementTest();
     runBaojianXiongAnchorTest();
     runKeYingNameSourceTest();

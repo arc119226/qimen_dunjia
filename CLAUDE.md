@@ -228,6 +228,16 @@ Note this is deliberately instant-based, not calendar-day-based: the Yuan bounda
 - Finding current solar term and days since term
 
 **patterns.js**: Pattern judgment (格局). Reads a finished chart, returns findings.
+
+**Entry guards.** Every detector and `detectPatterns` calls `requireChartFields()` first.
+This is not DX polish — without it `detectFanYin({})` fabricates a 「反吟・凶」 finding
+carrying a genuine 煙波釣叟歌 citation, i.e. a **false 凶格 with a real source attached**,
+which is a credibility-level defect for a project whose selling point is sourced judgments.
+A Map (what the chart APIs return) is **rejected, not auto-converted** — converting would
+make Map a second legal input shape and dilute rule 1 below, and would not catch the
+"right shape, missing fields" case. Guards check only the fields that detector actually
+reads, so partial-chart unit tests still work.
+
 Four rules govern this module:
 1. Pure functions over `chartToObject()` output — no dependency on how the chart was built.
 2. **Every finding carries its source** (書 / 篇 / 原文). The classics disagree on
