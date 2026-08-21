@@ -78,6 +78,20 @@ console.log(result2);
   - 拆補法另有 `節後天數`，自節氣交接「時刻」起算，節氣當日為 `0`
   - 符頭法另有 `上元符頭`、`符頭`、`超接`、`超接天數`、`閏局`
 
+#### generateChartNow 的時區
+
+未指定時取本機牆上時鐘（行為不變）並自陳落差；指定時換算到該時區的牆上時刻。
+
+```javascript
+Qimen.generateChartNow();                  // 本機牆上時鐘
+Qimen.generateChartNow({ 時區: 'UTC+8' }); // 換算到東八區
+Qimen.generateChartNow({ 時區: -5 });      // 'UTC-5'、'+8'、8 等寫法皆可
+```
+
+節氣算在 UTC+8，故未指定時區時，本機牆上時刻會被直接當成盤面基準時刻排盤。
+`時鐘來源.一致` 為 `false` 時 `時鐘來源.警告` 會說明。IANA 名稱（如
+`'Asia/Taipei'`）不支援，只收 UTC 偏移，無法解析者拋錯。
+
 #### 夜子時
 
 `generateChartByDatetime(datetime, { 夜子時 })` 接受 `'次日'`（預設）或 `'當日'`，

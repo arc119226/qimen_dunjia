@@ -126,6 +126,22 @@ Verified against 《奇門遁甲統宗》〈以旬首取符使法〉: "甲辰在
 
 **天禽 never moves** in the 九星 array — `rotateMapping` pins it at index 4. It is 寄坤 and travels with 天芮. Therefore `getZhiFuStarPosition()` looks up 天芮 when 值符 is 天禽; reading 天禽's literal array index would report 「中」 and contradict both classics, which require 八神's 值符 to share the palace with the 九星 值符 (統宗〈小值符加大值符法〉, 發凡〈小直符加大直符〉). `天禽寄宮` reports the same palace as an arrow.
 
+**`generateChartNow({時區})`** takes an explicit UTC offset (`'UTC+8'`, `'+8'`, `8`,
+`'UTC-05:30'`) and converts the current instant to that zone's wall clock. Omitted, it keeps
+the old behaviour (local wall clock) and self-reports the gap. Unparseable values throw
+rather than silently falling back. No guessing default — most schools use local time for
+時辰 abroad, so converting on the user's behalf would pick a school.
+
+**`天禽落宮`** returns the palace name; the older `天禽寄宮` returns a direction arrow and is
+kept for compatibility. The arrow field had **zero test coverage** — flipping
+`indexOf('天芮')` to `indexOf('天蓬')` used to pass everything. 《元靈經》 example 1 says
+「天禽加兌」 in so many words, so the palace is a classical golden value; it is now asserted,
+along with arrow-and-name agreeing on the same palace.
+
+**Output fields are pinned exactly.** `runChartFieldsTest` asserts set equality against three
+explicit lists (manual 36 / 拆補 44 / 符頭 48). Adding a field means editing that list —
+deliberately. The previous 16-field non-null check let additions and removals pass unnoticed.
+
 **夜子時 (the 23:00–24:00 hour) is an option, not a silent choice.**
 `generateChartByDatetime(datetime, {夜子時})` takes `'次日'` (default, unchanged behaviour)
 or `'當日'`. It decides whether that hour's 日柱 belongs to the current or the next day —

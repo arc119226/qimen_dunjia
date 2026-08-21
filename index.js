@@ -154,6 +154,7 @@ export {
     getZhiFuStarPosition,
     calculateNineStars,
     getTianQinDirection,
+    getTianQinPosition,
     
     // 八神
     calculateEightGods,

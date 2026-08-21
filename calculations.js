@@ -365,8 +365,29 @@ export function calculateNineStars(zhiFuStar, tianGan, diPan) {
  * @returns {string} 天禽寄宮的方向箭頭
  */
 export function getTianQinDirection(nineStars) {
-    const tianRuiIndex = nineStars.indexOf('天芮');
-    return DIRECTION_ARROWS[tianRuiIndex];
+    return DIRECTION_ARROWS[findTianQinIndex(nineStars)];
+}
+
+/** 天禽所寄之宮的索引。天禽於九星飛布中恆留中宮，故以其所寄的天芮定位 */
+function findTianQinIndex(nineStars) {
+    const index = nineStars.indexOf('天芮');
+    if (index === -1) throw new Error('九星飛布中未見天芮，無法定天禽所寄之宮');
+    return index;
+}
+
+/**
+ * 取得天禽寄宮的宮名
+ *
+ * 與 `getTianQinDirection` 同一件事，但回傳後天八卦宮名而非方向箭頭。
+ * 盤面所有落宮欄位（值符落宮、值使落宮、判定結果的宮）都用宮名，
+ * 只有天禽寄宮回箭頭，程式化取用不到——故另出此函數，
+ * 箭頭欄位保留以免對既有使用者造成破壞。
+ *
+ * @param {Array<string>} nineStars - 九星飛布結果
+ * @returns {string} 天禽所寄之宮的後天八卦名稱
+ */
+export function getTianQinPosition(nineStars) {
+    return LUOSHU_BAGUA[findTianQinIndex(nineStars)];
 }
 
 // ============================================================================

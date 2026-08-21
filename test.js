@@ -18,6 +18,7 @@ import {
     chartToObject,
     JIEQI_JUSHU,
     LUOSHU_BAGUA,
+    DIRECTION_ARROWS,
     LUOSHU_NUMBERS,
     QIMEN_STARS,
     PALACE,
@@ -655,6 +656,13 @@ function runYuanlingTest() {
     t.equal(a['符首'], '癸', '例一符首');
     t.equal(a['值符'], '天禽', '例一值符');
     t.equal(a['值符落宮'], '兌', '例一值符落宮（天禽加兌）');
+    // 原文即作「天禽加兌」，故天禽所寄之宮本身就是典籍給的黃金值。
+    // 此前無人斷言它——把 calculations.js 的 indexOf('天芮') 改成 indexOf('天蓬')，
+    // 全套測試照樣是綠的。
+    t.equal(a['天禽落宮'], '兌', '例一天禽落宮（原文「天禽加兌」）');
+    // 箭頭欄位與宮名欄位必須指向同一宮——兩種表示法不得各說各話
+    t.equal(a['天禽寄宮'], DIRECTION_ARROWS[LUOSHU_BAGUA.indexOf(a['天禽落宮'])],
+            '例一天禽寄宮之箭頭應與其落宮一致');
     t.equal(a['值使'], '死門', '例一值使（借坤宮死門）');
     t.equal(a['值使落宮'], '兌', '例一值使落宮');
 
@@ -3036,6 +3044,185 @@ const FAQIAO_HOUR_ARITHMETIC = [
     }
 ];
 
+// ============================================================================
+// 輸出欄位的完整清單
+// ============================================================================
+
+/**
+ * 輸出即公開 API，故欄位增刪必須是刻意的
+ *
+ * 原先只有一份十六欄的 `REQUIRED_FIELDS` 且僅檢查非空，而實際輸出為
+ * 三十六／四十四／四十八欄——也就是說「欄位被增刪」**完全不會被察覺**。
+ * 對一個已發布到 npm 的套件，那是實質風險。
+ *
+ * 此處改為三份**精確清單**並以集合相等斷言：多一欄、少一欄都會紅。
+ * 新增欄位時必須同時改這裡，那正是本測試的用意——讓它成為一個
+ * 刻意的動作，而非某次改動的副產物。
+ */
+const CHART_FIELDS_MANUAL = [
+    '年柱', '年旬空', '年孤虛', '月柱', '月旬空', '月孤虛',
+    '日柱', '日旬空', '日孤虛', '時柱', '時旬空', '時孤虛',
+    '時干', '陰陽', '局數',
+    '旬首', '符首', '值使', '值符',
+    '值符落宮', '值符入中', '值使落宮', '值使入中', '飛步',
+    '河圖', '方位', '九宮',
+    '地盤', '地門', '天盤', '天門', '原星', '九星',
+    '天禽寄宮', '天禽落宮', '八神'
+];
+
+/** 自動起盤在手動之外另加的欄位 */
+const CHART_FIELDS_AUTO_EXTRA = [
+    '節氣', '三元', '定局法', '夜子時', '落於夜子時',
+    '時間基準', '曆法基準'
+];
+
+/** 拆補法專屬 */
+const CHART_FIELDS_CHAIBU_EXTRA = ['節後天數'];
+
+/** 符頭法專屬 */
+const CHART_FIELDS_FUTOU_EXTRA = ['符頭', '上元符頭', '超接', '超接天數', '閏局'];
+
+// ============================================================================
+// generateChartNow 的時區選項
+// ============================================================================
+
+/**
+ * 不設猜測性預設
+ *
+ * 未指定 `時區` 時維持原有行為（取本機牆上時鐘），並在「時鐘來源」自陳其與
+ * 盤面基準的落差——**只陳述不代為換算**，因為多數流派對境外起課用當地時間
+ * 定時辰，逕自換成 UTC+8 等於替使用者選了一派。
+ *
+ * 指定 `時區` 則把當下這一瞬間換算到該時區的牆上時刻。那是明示的選擇。
+ */
+
+/** 由當下時刻算出某時區的牆上時刻，格式 yyyyMMddHH */
+function wallClockAt(offsetHours, at) {
+    const shifted = new Date(at.getTime() + offsetHours * 3600000);
+    return shifted.getUTCFullYear().toString() +
+        String(shifted.getUTCMonth() + 1).padStart(2, '0') +
+        String(shifted.getUTCDate()).padStart(2, '0') +
+        String(shifted.getUTCHours()).padStart(2, '0');
+}
+
+function runNowTimezoneTest() {
+    const t = createAsserter();
+
+    // 一、未指定時區：行為不變，且自陳來源為本機時鐘
+    const implicit = chartToObject(generateChartNow());
+    t.equal(implicit['時鐘來源'].來源, '本機時鐘', '未指定時區時的來源');
+    t.ok(/^UTC[+-]\d{2}:\d{2}$/.test(implicit['時鐘來源'].本機時區),
+         `本機時區格式：${implicit['時鐘來源'].本機時區}`);
+
+    // 二、同一時區的各種寫法必須等價
+    const forms = [['UTC+8', 8], ['+8', 8], ['8', 8], [8, 8], ['UTC-5', -5], [-5, -5]];
+    for (const [written, hours] of forms) {
+        const obj = chartToObject(generateChartNow({ 時區: written }));
+        t.equal(obj['時鐘來源'].來源, '指定時區', `${JSON.stringify(written)} 的來源`);
+        t.equal(obj['時鐘來源'].指定時區,
+                `UTC${hours < 0 ? '-' : '+'}${String(Math.abs(hours)).padStart(2, '0')}:00`,
+                `${JSON.stringify(written)} 應解析為 ${hours} 時`);
+        t.equal(obj['時鐘來源'].與盤面基準時差, hours - 8,
+                `${JSON.stringify(written)} 與盤面基準的時差`);
+        t.equal(obj['時鐘來源'].一致, hours === 8,
+                `${JSON.stringify(written)} 的一致旗標`);
+    }
+
+    // 三、半時時區
+    const half = chartToObject(generateChartNow({ 時區: 'UTC+05:30' }));
+    t.equal(half['時鐘來源'].指定時區, 'UTC+05:30', '半時時區應能解析');
+    t.equal(half['時鐘來源'].與盤面基準時差, -2.5, '半時時區的時差');
+
+    // 四、換算必須算對：指定時區所得之盤，須等同於以該時區牆上時刻直接起盤。
+    //     跨越整點時「現在」會移動，故前後各取一次，兩次相同才比對。
+    for (const hours of [8, 0, -5]) {
+        const before = wallClockAt(hours, new Date());
+        const viaNow = chartToObject(generateChartNow({ 時區: hours }));
+        const after = wallClockAt(hours, new Date());
+        if (before !== after) continue;          // 恰好跨過整點，略過本輪
+        const direct = chartToObject(generateChartByDatetime(before));
+        for (const field of ['年柱', '月柱', '日柱', '時柱', '節氣', '三元', '局數']) {
+            t.equal(viaNow[field], direct[field],
+                    `UTC${hours >= 0 ? '+' : ''}${hours}：與直接起盤的 ${field} 應相同`);
+        }
+    }
+
+    // 五、不一致時必須警告，一致時不得警告
+    const foreign = chartToObject(generateChartNow({ 時區: -5 }));
+    t.ok(typeof foreign['時鐘來源'].警告 === 'string'
+         && foreign['時鐘來源'].警告.includes('UTC-05:00'),
+         '不一致時的警告應指名所指定的時區');
+    t.ok(typeof foreign['時鐘來源'].警告 === 'string'
+         && foreign['時鐘來源'].警告.includes('明示'),
+         '警告應點明這是使用者明示的選擇，非程式所猜');
+    const local = chartToObject(generateChartNow({ 時區: 8 }));
+    t.equal(local['時鐘來源'].警告, null, '一致時不應有警告');
+
+    // 六、無法解析者須拋錯而非默默取本機
+    for (const bad of ['Asia/Taipei', 'UTC+99', '', {}, null === undefined ? 0 : 'abc']) {
+        let threw = null;
+        try {
+            generateChartNow({ 時區: bad });
+        } catch (error) {
+            threw = error.message;
+        }
+        t.ok(threw !== null, `無法解析的時區 ${JSON.stringify(bad)} 應拋錯`);
+        t.ok(threw !== null && threw.includes('時區'),
+             `${JSON.stringify(bad)} 的錯誤訊息應提到時區`);
+    }
+
+    record('generateChartNow 的時區選項（不設猜測性預設）', truncate(t.errors, 10));
+}
+
+function runChartFieldsTest() {
+    const t = createAsserter();
+    const sorted = list => [...list].sort();
+
+    const manual = chartToObject(generateQimenChart({
+        年柱: '甲辰', 月柱: '丙寅', 日柱: '戊午', 時柱: '庚申', 局數: 5, 陰陽: '陽'
+    }));
+    t.deepEqual(sorted(Object.keys(manual)), sorted(CHART_FIELDS_MANUAL),
+                '手動起盤的欄位集合');
+
+    const chaiBu = chartToObject(generateChartByDatetime('2024011510'));
+    t.deepEqual(sorted(Object.keys(chaiBu)),
+                sorted([...CHART_FIELDS_MANUAL, ...CHART_FIELDS_AUTO_EXTRA,
+                        ...CHART_FIELDS_CHAIBU_EXTRA]),
+                '拆補法自動起盤的欄位集合');
+
+    const fuTou = chartToObject(generateChartByDatetime('2024011510', { 定局法: '符頭' }));
+    t.deepEqual(sorted(Object.keys(fuTou)),
+                sorted([...CHART_FIELDS_MANUAL, ...CHART_FIELDS_AUTO_EXTRA,
+                        ...CHART_FIELDS_FUTOU_EXTRA]),
+                '符頭法自動起盤的欄位集合');
+
+    // 兩法互斥的欄位不得互相滲入
+    for (const field of CHART_FIELDS_CHAIBU_EXTRA) {
+        t.equal(fuTou[field], undefined, `符頭法不應有拆補法專屬的「${field}」`);
+    }
+    for (const field of CHART_FIELDS_FUTOU_EXTRA) {
+        t.equal(chaiBu[field], undefined, `拆補法不應有符頭法專屬的「${field}」`);
+    }
+
+    // 每一欄都要有值——集合相等擋得住增刪，擋不住某欄變成 undefined
+    for (const [名, obj] of [['手動', manual], ['拆補', chaiBu], ['符頭', fuTou]]) {
+        for (const [field, value] of Object.entries(obj)) {
+            t.ok(value !== undefined && value !== null,
+                 `${名}起盤的「${field}」不應為空`);
+        }
+    }
+
+    // generateChartNow 另加時鐘來源，且僅此一欄之差
+    const now = chartToObject(generateChartNow());
+    const extra = Object.keys(now).filter(k => !chaiBu.hasOwnProperty(k));
+    t.deepEqual(extra, ['時鐘來源'], 'generateChartNow 應只多出時鐘來源一欄');
+
+    record(`輸出欄位精確清單（手動 ${CHART_FIELDS_MANUAL.length}、拆補 ` +
+           `${CHART_FIELDS_MANUAL.length + CHART_FIELDS_AUTO_EXTRA.length + 1}、符頭 ` +
+           `${CHART_FIELDS_MANUAL.length + CHART_FIELDS_AUTO_EXTRA.length + 5} 欄）`,
+           truncate(t.errors, 10));
+}
+
 function runNightZiClassicalArithmeticTest() {
     const t = createAsserter();
     const 時辰 = 120;
@@ -3454,6 +3641,8 @@ function runAllTests() {
     runWuBuYuConstructionTest();
     runWuBuYuTableTest();
 
+    runNowTimezoneTest();
+    runChartFieldsTest();
     runNightZiClassicalArithmeticTest();
     runNightZiTest();
 

@@ -42,6 +42,7 @@ import {
     getZhiFuStarPosition,
     calculateNineStars,
     getTianQinDirection,
+    getTianQinPosition,
     calculateEightGods,
     getZhiShiPosition,
     calculateJuByChaiBu
@@ -284,6 +285,7 @@ export function generateQimenChart(pillars, legacyData) {
     resultMap.set('原星', originalStars);
     resultMap.set('九星', nineStars);
     resultMap.set('天禽寄宮', tianQinDirection);
+    resultMap.set('天禽落宮', getTianQinPosition(nineStars));
     resultMap.set('八神', eightGods);
     
     return resultMap;
@@ -569,6 +571,9 @@ export function generateChartByDatetime(datetime, options = {}) {
  * 此函數使用系統當前時間自動起盤，適用於即時占卜。
  *
  * @param {Object} [options] - 選項，同 generateChartByDatetime
+ * @param {string|number} [options.時區] - 目標時區，如 'UTC+8'、'+8'、8。
+ *                                        未指定則取本機牆上時鐘（行為不變），
+ *                                        並在「時鐘來源」自陳其與盤面基準的落差
  * @returns {Map} 完整的盤局結果，額外包含節氣、三元等定局資訊
  *
  * @example
@@ -579,17 +584,92 @@ export function generateChartByDatetime(datetime, options = {}) {
  */
 export function generateChartNow(options = {}) {
     const now = new Date();
+    const source = resolveNowClock(now, options.時區);
 
-    // 格式化為 yyyyMMddHH
-    const datetime =
-        now.getFullYear().toString() +
-        (now.getMonth() + 1).toString().padStart(2, '0') +
-        now.getDate().toString().padStart(2, '0') +
-        now.getHours().toString().padStart(2, '0');
-
-    const chart = generateChartByDatetime(datetime, options);
-    chart.set('時鐘來源', describeLocalClock(now));
+    const chart = generateChartByDatetime(source.datetime, options);
+    chart.set('時鐘來源', source.來源);
     return chart;
+}
+
+/**
+ * 決定「現在」該取哪一個牆上時刻
+ *
+ * 不設猜測性預設：未指定 `時區` 時，維持原有行為（直接取本機牆上時鐘），
+ * 並在輸出中自陳其與盤面基準的落差。**只陳述不代為換算**——多數流派
+ * 對境外起課用當地時間定時辰，逕自換成 UTC+8 等於替使用者選了一派。
+ *
+ * 指定 `時區` 時（如 `'UTC+8'`、`'UTC-5'`、`8`、`-5`），則把當下這一瞬間
+ * 換算到該時區的牆上時刻。這是明示的選擇，故不再有「落差」可言。
+ *
+ * @param {Date} now - 當下時刻
+ * @param {string|number} [zone] - 目標時區，如 'UTC+8' 或 8
+ */
+function resolveNowClock(now, zone) {
+    if (zone === undefined || zone === null) {
+        return { datetime: formatWallClock(now), 來源: describeLocalClock(now) };
+    }
+
+    const offsetMinutes = parseUtcOffset(zone);
+    // 由 UTC 加上目標偏移，得該時區的牆上時刻
+    const shifted = new Date(now.getTime() + offsetMinutes * 60000);
+    return {
+        datetime: formatWallClockUtc(shifted),
+        來源: Object.freeze({
+            來源: '指定時區',
+            指定時區: formatUtcOffset(offsetMinutes),
+            盤面基準: formatUtcOffset(CHART_UTC_OFFSET_MINUTES),
+            與盤面基準時差: (offsetMinutes - CHART_UTC_OFFSET_MINUTES) / 60,
+            一致: offsetMinutes === CHART_UTC_OFFSET_MINUTES,
+            警告: offsetMinutes === CHART_UTC_OFFSET_MINUTES
+                ? null
+                : `所指定的 ${formatUtcOffset(offsetMinutes)} 與盤面基準 ` +
+                  `${formatUtcOffset(CHART_UTC_OFFSET_MINUTES)} 不同。節氣交接時刻算在` +
+                  `盤面基準，故所排之盤是「該時區牆上時刻」被當成盤面基準時刻的結果——` +
+                  `這是您明示的選擇，非程式所猜。`
+        })
+    };
+}
+
+/** 解析 'UTC+8'、'+8'、'8'、8、'UTC-05:30' 等寫法，回傳相對 UTC 的分鐘數 */
+function parseUtcOffset(zone) {
+    if (typeof zone === 'number') {
+        if (!Number.isFinite(zone) || Math.abs(zone) > 14) {
+            throw new Error(`時區偏移超出範圍：${zone}（應在 -14 至 +14 之間）`);
+        }
+        return Math.round(zone * 60);
+    }
+    if (typeof zone !== 'string') {
+        throw new Error(`無法解析的時區：${JSON.stringify(zone)}`);
+    }
+    const matched = /^(?:UTC|GMT)?\s*([+-]?)(\d{1,2})(?::?(\d{2}))?$/i.exec(zone.trim());
+    if (!matched) {
+        throw new Error(
+            `無法解析的時區：「${zone}」。可用寫法如 'UTC+8'、'+8'、'8'、'UTC-05:30'，或直接給數字 8。`
+        );
+    }
+    const sign = matched[1] === '-' ? -1 : 1;
+    const hours = Number(matched[2]);
+    const minutes = matched[3] ? Number(matched[3]) : 0;
+    if (hours > 14 || minutes > 59) {
+        throw new Error(`時區偏移超出範圍：「${zone}」（應在 -14:00 至 +14:00 之間）`);
+    }
+    return sign * (hours * 60 + minutes);
+}
+
+/** 取本機牆上時刻，格式化為 yyyyMMddHH */
+function formatWallClock(date) {
+    return date.getFullYear().toString() +
+        (date.getMonth() + 1).toString().padStart(2, '0') +
+        date.getDate().toString().padStart(2, '0') +
+        date.getHours().toString().padStart(2, '0');
+}
+
+/** 取 UTC 各欄位，格式化為 yyyyMMddHH（用於已位移過的時刻） */
+function formatWallClockUtc(date) {
+    return date.getUTCFullYear().toString() +
+        (date.getUTCMonth() + 1).toString().padStart(2, '0') +
+        date.getUTCDate().toString().padStart(2, '0') +
+        date.getUTCHours().toString().padStart(2, '0');
 }
 
 /** 盤面基準時區相對 UTC 的分鐘數（東經 120 度標準時） */
