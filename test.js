@@ -46,6 +46,9 @@ import {
     detectLiuYiJiXing,
     detectWuBuYu,
     detectMenPo,
+    getFuTouChainForRange,
+    FU_TOU_ZHENG_SHOU_ANCHOR,
+    FU_TOU_LEAP_THRESHOLD_VARIANT,
     ELEMENT_GENERATES,
     detectSanQiRuMu,
     detectSanDun,
@@ -2044,113 +2047,178 @@ function runFaQiaoJuTests() {
 }
 
 /**
- * 符頭法的結構不變式
+ * 《奇門遁甲統宗》康熙五十六至五十八年的完整置閏算例
  *
- * 《寶鑒御定》：「考古法以甲子、己卯、甲午、己酉為符頭者…故立符以定元首也」
- *               「起超不可過九日，如過九日，即當置閏也」
+ * 這是九部書中唯一帶絕對紀年、可直接執行的置閏算例。原文（統宗〈置閏法〉）：
  *
- * 超神上限九日，置閏後退十五日即接氣六日，故偏離必落在 [接氣6, 超神9]。
- * 這是純結構性的界，與任何流派選擇無關；越界即代表演算法壞了。
+ *   「五十七年五月二十四日壬申卯初二度交夏至節，十六日即為甲子上元，
+ *     乃超過九日矣，宜先於芒種節上置閏。蓋五月初一己酉即為芒種上局，
+ *     初六日為芒種中局，十一日為芒種下局。至十六日為芒種上中下三局已足矣。
+ *     自十六甲子至二十四壬申，已超九日，為期大遠。故十六日甲子**不作夏至上局**，
+ *     而為芒種閏奇上局，二十一日己巳作芒種閏奇中局，二十六日甲戌作芒種閏奇下局。
+ *     至六月初一日戊寅閏奇方終，六月初二日己卯始得為夏至上局。斯乃謂之接氣。
+ *     直至康熙五十八年六月二十三日立秋，而甲子符頭恰當日，是為正授，
+ *     本日即是陰遁二局。上元至七月初九日庚辰處暑即超一日矣。」
+ *
+ * 十四組農曆日期與干支已逐一核對無誤，故此算例可執行。
+ * 舊實作（置閏落在算術上被迫重複的節氣）在此十個檢核點錯五個，
+ * 且芒種為陽遁、夏至為陰遁，錯的不只是局數而是陰陽遁翻面。
  */
-function runFuTouInvariantTests() {
+const TONGZONG_LEAP_CASE = [
+    { 西曆: [1718, 5, 30], 節氣: '芒種', 三元: '上元', 註: '五月初一己酉，芒種上局' },
+    { 西曆: [1718, 6, 4], 節氣: '芒種', 三元: '中元', 註: '初六日，芒種中局' },
+    { 西曆: [1718, 6, 9], 節氣: '芒種', 三元: '下元', 註: '十一日，芒種下局' },
+    { 西曆: [1718, 6, 14], 節氣: '芒種', 三元: '上元', 閏局: true, 註: '十六日甲子，不作夏至上局而為芒種閏奇上局' },
+    { 西曆: [1718, 6, 19], 節氣: '芒種', 三元: '中元', 閏局: true, 註: '二十一日己巳，芒種閏奇中局' },
+    { 西曆: [1718, 6, 24], 節氣: '芒種', 三元: '下元', 閏局: true, 註: '二十六日甲戌，芒種閏奇下局' },
+    { 西曆: [1718, 6, 29], 節氣: '夏至', 三元: '上元', 註: '六月初二己卯，始得為夏至上局' },
+    { 西曆: [1718, 7, 4], 節氣: '夏至', 三元: '中元' },
+    { 西曆: [1719, 8, 8], 節氣: '立秋', 三元: '上元', 超接: '正授', 陰陽: '陰', 局數: 2,
+      註: '甲子符頭恰當日，是為正授，本日即是陰遁二局' },
+    { 西曆: [1719, 8, 24], 節氣: '處暑', 三元: '上元', 註: '七月初九日庚辰處暑' }
+];
+
+/** 《統宗》康熙算例逐點比對 */
+function runTongzongLeapCaseTest() {
     const t = createAsserter();
-    const shangYuanFuTou = new Set(['甲子', '己卯', '甲午', '己酉']);
-    const yuanNames = ['上元', '中元', '下元'];
-    const offsets = [];
-    const outOfRange = [];
-    const badFuTou = [];
-    const chaoJieSeen = new Set();
+    for (const kase of TONGZONG_LEAP_CASE) {
+        const [y, m, d] = kase.西曆;
+        const datetime = `${y}${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}12`;
+        const obj = chartToObject(generateChartByDatetime(datetime, { 定局法: '符頭' }));
+        const where = `${y}-${m}-${d}${kase.註 ? '（' + kase.註 + '）' : ''}`;
 
-    // 1900–2100，每十五日取樣一次（每個符頭循環恰取一點）
-    let cursor = [1900, 1, 20];
-    for (let step = 0; step < 4880; step++) {
-        const [y, m, d] = cursor;
-        cursor = addDays(cursor, 15);
-        if (y > 2100) break;
-
-        const obj = chartToObject(
-            generateChartByDatetime(ymdhToString(y, m, d), { 定局法: '符頭' })
-        );
-
-        if (!shangYuanFuTou.has(obj['上元符頭'])) {
-            badFuTou.push(`${y}-${m}-${d} 上元符頭 ${obj['上元符頭']} 不在甲子、己卯、甲午、己酉之列`);
-        }
-        if (obj['符頭'][0] !== '甲' && obj['符頭'][0] !== '己') {
-            badFuTou.push(`${y}-${m}-${d} 符頭 ${obj['符頭']} 非甲己日`);
-        }
-
-        const signed = obj['超接'] === '接氣' ? -obj['超接天數'] : obj['超接天數'];
-        offsets.push(signed);
-        chaoJieSeen.add(obj['超接']);
-        if (signed < -6 || signed > 9) {
-            outOfRange.push(`${y}-${m}-${d} 偏離 ${obj['超接']}${obj['超接天數']} 日`);
-        }
-
-        t.ok(yuanNames.includes(obj['三元']), `${y}-${m}-${d} 三元 ${obj['三元']} 非法`);
+        t.equal(obj['節氣'], kase.節氣, `${where} 節氣`);
+        t.equal(obj['三元'], kase.三元, `${where} 三元`);
+        if (kase.閏局 !== undefined) t.equal(obj['閏局'], kase.閏局, `${where} 閏局`);
+        if (kase.超接 !== undefined) t.equal(obj['超接'], kase.超接, `${where} 超接`);
+        if (kase.陰陽 !== undefined) t.equal(obj['陰陽'], kase.陰陽, `${where} 陰陽遁`);
+        if (kase.局數 !== undefined) t.equal(obj['局數'], kase.局數, `${where} 局數`);
     }
-
-    for (const e of truncate(badFuTou, 5)) t.errors.push(e);
-    for (const e of truncate(outOfRange, 5)) t.errors.push(e);
-
-    t.equal(Math.min(...offsets), -6, '接氣極值應為 6 日（超神 9 日退一循環十五日）');
-    t.equal(Math.max(...offsets), 9, '超神極值應為 9 日（《寶鑒》「起超不可過九日」）');
-    t.deepEqual([...chaoJieSeen].sort(), ['接氣', '正授', '超神'], '超神、接氣、正授三態俱應出現');
-
-    record(`符頭法結構不變式（1900–2100，${offsets.length} 個循環）`, truncate(t.errors, 12));
+    record(`《統宗》康熙 56–58 年置閏算例（${TONGZONG_LEAP_CASE.length} 個檢核點）`,
+           truncate(t.errors, 12));
 }
 
 /**
- * 置閏的湧現與其代價
+ * 《統宗》所記的正授，是整條符頭鏈的外部錨點
  *
- * 符頭循環固定十五日，節氣平均十五點二一八四日，比值 0.9857 略小於一，
- * 故「不遲於符頭後九日之最晚節氣」這一指標每約六十九個節氣停滯一次——
- * 停滯即相鄰兩循環共用同一節氣，正是《寶鑒》「重用本氣三元」的置閏，
- * 無須外部錨點而自然湧現。
- *
- * 代價亦須記錄：節氣間隔並非等長（近日點約 14.7 日、遠日點約 15.7 日），
- * 故此無記憶規則在冬季偶爾一次推進兩格，跳過一個節氣，
- * 違背《寶鑒》「俾三元之次序不紊」。《寶鑒》古法將閏推遲至芒種或大雪
- * 正可消去此事；本實作未行推遲，此測試把代價釘在數字上，
- * 使日後若改採推遲，能立刻看出差異。
+ * 鏈由純規則自 1700 年附近的任意起點走出，並未把這個日期餵進去；
+ * 若規則正確，康熙五十八年立秋（1719-08-08）必落在正授。
+ * 這是「宣告須可證偽」的同一個模式——錨點是檢查，不是建構輸入。
  */
-function runLeapEmergenceTest() {
+function runFuTouAnchorTest() {
     const t = createAsserter();
+    const anchor = FU_TOU_ZHENG_SHOU_ANCHOR;
+    t.equal(anchor.西曆, '1719-08-08', '錨點日期');
+
+    const [y, m, d] = anchor.西曆.split('-').map(Number);
+    const obj = chartToObject(generateChartByDatetime(
+        `${y}${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}12`, { 定局法: '符頭' }));
+
+    t.equal(obj['節氣'], anchor.節氣, '錨點之節氣');
+    t.equal(obj['超接'], '正授', '錨點必為正授——鏈若走錯，此處必不為零');
+    t.equal(obj['超接天數'], 0, '錨點之日差');
+    t.equal(obj['上元符頭'], anchor.符頭, '錨點之上元符頭');
+    t.equal(obj['三元'], '上元', '錨點之三元');
+    // 《統宗》：「本日即是陰遁二局」
+    t.equal(obj['陰陽'], '陰', '錨點之陰陽遁');
+    t.equal(obj['局數'], 2, '錨點之局數');
+
+    record('符頭鏈的外部錨點：《統宗》康熙五十八年立秋正授', t.errors);
+}
+
+/**
+ * 置閏必落在芒種或大雪，且不得跳過任何節氣
+ *
+ * 《演義》：「置閏定在芒種、大雪之後。設遇小滿、小雪二氣之交，
+ * 雖超九日、十日，不可置閏。」《寶鑒》：「遇芒種大雪，重用本氣三元。」
+ * 又《統宗》：「俾三元之次序不紊耳。」——故節氣不得被跳過。
+ *
+ * 舊實作（置閏落在算術上被迫重複的節氣）在兩百年間把閏散在夏季各節氣，
+ * 大雪一次也沒有，且跳過二十一個節氣，全在冬季。
+ */
+function runFuTouChainInvariantTest() {
+    const t = createAsserter();
+    const chain = getFuTouChainForRange(1800, 2100);
+    t.ok(chain.length > 7000, `1800–2100 應有七千個以上的符頭循環，實得 ${chain.length}`);
+
+    const leapNames = new Set();
+    const gaps = [];
     let leaps = 0;
-    let blocks = 0;
-    let previousJieQi = null;
-    const leapMonths = new Set();
+    let skipped = 0;
 
-    let cursor = [1900, 1, 20];
-    for (let step = 0; step < 4880; step++) {
-        const [y, m, d] = cursor;
-        cursor = addDays(cursor, 15);
-        if (y > 2100) break;
-
-        const obj = chartToObject(
-            generateChartByDatetime(ymdhToString(y, m, d), { 定局法: '符頭' })
-        );
-        blocks++;
-        if (obj['閏局']) {
+    for (let i = 0; i < chain.length; i++) {
+        gaps.push(chain[i].日差);
+        if (chain[i].閏局) {
             leaps++;
-            leapMonths.add(obj['節氣']);
-            t.equal(obj['節氣'], previousJieQi, `${y}-${m}-${d} 標為閏局，其節氣應與前一循環相同`);
+            leapNames.add(chain[i].節氣);
+            t.equal(chain[i].節氣, chain[i - 1] ? chain[i - 1].節氣 : null,
+                    `閏局須與前一循環同節氣（重用本氣三元）`);
         }
-        previousJieQi = obj['節氣'];
+        if (i > 0) {
+            const advance = chain[i].節氣索引 - chain[i - 1].節氣索引;
+            t.ok(advance === 0 || advance === 1,
+                 `循環間的節氣推進量只能是 0（閏）或 1，實得 ${advance}`);
+            if (advance > 1) skipped += advance - 1;
+        }
     }
 
-    // 理論：漂移滿十五日需 15 ÷ (365.2422/24 − 15) ≈ 68.7 個節氣 ≈ 2.86 年
-    const yearsPerLeap = 201 / leaps;
-    t.ok(leaps > 60 && leaps < 110, `兩百年置閏 ${leaps} 次（每 ${yearsPerLeap.toFixed(2)} 年一閏），偏離理論值 2.86 年過遠`);
-    t.ok(blocks > 4800, `取樣循環數 ${blocks} 過少`);
+    t.deepEqual([...leapNames].sort(), ['大雪', '芒種'],
+                `置閏只應落在芒種與大雪，實得 ${[...leapNames].join('、')}`);
+    t.equal(skipped, 0, '不得跳過任何節氣（統宗「俾三元之次序不紊」）');
 
-    // 置閏落點集中於夏季——遠日點節氣間隔最長，漂移最快
-    const summer = ['芒種', '夏至', '小暑', '大暑'];
-    t.ok(
-        summer.some(name => leapMonths.has(name)),
-        `置閏落點 ${[...leapMonths].join('、')} 未含芒種前後，與《寶鑒》「二至之前有閏奇」不合`
-    );
+    // 漂移滿十五日需 15 ÷ (365.2422/24 − 15) ≈ 68.7 個節氣 ≈ 2.86 年
+    const yearsPerLeap = 301 / leaps;
+    t.ok(yearsPerLeap > 2.5 && yearsPerLeap < 3.3,
+         `置閏頻率應近理論值 2.86 年，實得每 ${yearsPerLeap.toFixed(2)} 年一閏（${leaps} 次）`);
 
-    record(`置閏自然湧現（兩百年 ${leaps} 次，每 ${yearsPerLeap.toFixed(2)} 年一閏）`, truncate(t.errors, 8));
+    // 觸發值為日差 8（典籍作九日，含頭計數）；因閏須待芒種或大雪，
+    // 日差可續增至十一。《演義》：「超越經旬或九朝，或過十一日無饒。」
+    t.ok(Math.max(...gaps) >= 8, `超神極值應達觸發值以上，實得 ${Math.max(...gaps)}`);
+    t.ok(Math.max(...gaps) <= 11,
+         `超神極值不應超過十一日（《演義》「或過十一日無饒」），實得 ${Math.max(...gaps)}`);
+    t.ok(Math.min(...gaps) >= -9,
+         `接氣極值：置閏退十五日，故不應低於 -9，實得 ${Math.min(...gaps)}`);
+
+    record(`符頭鏈不變式（1800–2100，${chain.length} 循環，閏 ${leaps} 次落於 ${[...leapNames].join('、')}）`,
+           truncate(t.errors, 10));
+}
+
+/**
+ * 時粒度的疊局未實作——把這個已知從缺釘在數字上
+ *
+ * 《法竅》〈論拆局補局〉的原文本身即以時刻定義：一段文字裡疊局出現三次，
+ * 如「子丑二時與寅初之三刻，卻是己酉上元符頭統領，法當疊作處暑上局補之」。
+ * 本實作為日粒度，該日全日歸於同一元。
+ *
+ * 可觀測的後果：1962-09-08 白露交於寅初三刻（約 03:45），《法竅》作
+ * 「符先節後，法當用超」，而本專案因符頭與節氣同日而作「正授」。
+ * 此測試斷言該分歧確實存在——若日後實作了疊局，這一則會變紅，
+ * 那正是提醒你回來改文件的時候。
+ */
+function runFuTouKnownGapTest() {
+    const t = createAsserter();
+
+    const obj = chartToObject(generateChartByDatetime('1962090812', { 定局法: '符頭' }));
+    t.equal(obj['節氣'], '白露', '1962-09-08 之節氣');
+    t.equal(obj['超接'], '正授',
+            '日粒度下白露與符頭同日故作正授；《法竅》以時粒度作「符先節後，法當用超」');
+
+    // 全日同元：疊局若實作，同日不同時辰會分屬兩元
+    const hours = ['00', '02', '04', '12', '22'];
+    const yuans = new Set();
+    for (const hour of hours) {
+        yuans.add(chartToObject(generateChartByDatetime('19620908' + hour, { 定局法: '符頭' }))['三元']);
+    }
+    t.equal(yuans.size, 1,
+            `日粒度實作下，同一日各時辰應同屬一元，實得 ${[...yuans].join('、')}`);
+
+    // 《秘笈》另記的閾值須留有記載，不得靜默丟棄
+    t.ok(!!FU_TOU_LEAP_THRESHOLD_VARIANT.文.includes('過十四日'),
+         '《秘笈》「過十四日」一說應留有記載');
+    t.ok(FU_TOU_LEAP_THRESHOLD_VARIANT.未實作之由.length > 10,
+         '未實作之由須記明');
+
+    record('符頭法的已知從缺：時粒度疊局，與《秘笈》的第二閾值', t.errors);
 }
 
 /**
@@ -3074,8 +3142,10 @@ function runAllTests() {
     runFaQiaoJuTests();
     runJuMethodOptionTests();
     runJuMethodDivergenceTest();
-    runFuTouInvariantTests();
-    runLeapEmergenceTest();
+    runTongzongLeapCaseTest();
+    runFuTouAnchorTest();
+    runFuTouChainInvariantTest();
+    runFuTouKnownGapTest();
 
     runMenGongRelationTest();
 

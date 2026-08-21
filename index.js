@@ -164,7 +164,10 @@ export {
     
     // 定局
     calculateJuByChaiBu,
-    calculateJuByFuTou
+    calculateJuByFuTou,
+    getFuTouChainForRange,
+    FU_TOU_ZHENG_SHOU_ANCHOR,
+    FU_TOU_LEAP_THRESHOLD_VARIANT
 } from './calculations.js';
 
 // 匯出格局判斷

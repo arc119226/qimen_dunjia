@@ -542,107 +542,221 @@ export function calculateJuByChaiBu(solar, jieQiJuShu, yuanNames) {
  */
 const SHANG_YUAN_FU_TOU = Object.freeze(['甲子', '己卯', '甲午', '己酉']);
 
-/** 超神上限。《寶鑒》：「起超不可過九日，如過九日，即當置閏也。」 */
-const MAX_CHAO_SHEN_DAYS = 9;
+/**
+ * 置閏的節氣：芒種與大雪
+ *
+ * 《遁甲演義》：「置閏定在芒種、大雪之後。設遇小滿、小雪二氣之交，
+ * **雖超九日、十日，不可置閏**。蓋奇以冬夏二至，陽極陰終。」
+ * 又：「閏奇若不居芒種，便是陰終大雪時。」
+ * 《寶鑒御定》：「遇芒種大雪，重用本氣三元。」三書一致。
+ */
+const LEAP_JIE_QI = Object.freeze(['芒種', '大雪']);
+
+/**
+ * 置閏的觸發日差
+ *
+ * 典籍作「九日」，但用的是**含頭計數**：《統宗》康熙五十七年例，
+ * 上元符頭甲子在五月十六、夏至在五月廿四，曆日相差八日而原文作
+ * 「乃超過九日矣」；《演義》丙午年例「四月初五日是甲子，已在立夏前九日矣」，
+ * 初五至十三亦相差八日。故本實作的日差門檻為 8。
+ *
+ * 《演義》另指出這個窗口只有三天：「超越經旬或九朝，或過十一日無饒。
+ * 閏奇額在斯三日，更不加前與後稍。」——因閏只在芒種、大雪落下，
+ * 觸發後須等到下一個芒種或大雪，故實際日差可達十一（含頭十二）。
+ *
+ * 本專案輸出的「超接天數」是**曆日之差**，非含頭計數；
+ * 讀典籍時請記得其數大一。
+ */
+const LEAP_TRIGGER_GAP = 8;
+
+/**
+ * 《奇門遁甲秘笈大全》另記一個閾值，因無規則與算例而未實作
+ *
+ * 原文：「夫閏奇者，有過九日而後閏者，有過十四日而值閏者，各有決例。」
+ * 該書只報告兩派並存，未給十四日一派的完整規則，亦無算例可驗，
+ * 故依本專案的收錄門檻（自帶算例）記載而不實作。
+ */
+export const FU_TOU_LEAP_THRESHOLD_VARIANT = Object.freeze({
+    書: '奇門遁甲秘笈大全',
+    文: '夫閏奇者，有過九日而後閏者，有過十四日而值閏者，各有決例。',
+    未實作之由: '該書只報告兩派並存，未給「過十四日」一派的完整規則，亦無算例可驗。'
+});
+
+/**
+ * 《統宗》所記的正授，用以驗證推算出的鏈
+ *
+ * 原文：「直至康熙五十八年六月二十三日立秋，而甲子符頭恰當日，是為正授，
+ * 本日即是陰遁二局。」該日為 1719-08-08。
+ *
+ * **這是外部檢查，不是建構輸入**：下方的鏈由純規則自任意早期起點走出，
+ * 若規則正確，該日必落在立秋且日差為零。test.js 斷言此事。
+ */
+export const FU_TOU_ZHENG_SHOU_ANCHOR = Object.freeze({
+    西曆: '1719-08-08',
+    節氣: '立秋',
+    符頭: '甲子',
+    書: '奇門遁甲統宗',
+    文: '直至康熙五十八年六月二十三日立秋，而甲子符頭恰當日，是為正授，本日即是陰遁二局。'
+});
 
 /** 取某日之儒略日整數（以當地零時為界） */
 function toDayNumber(solar) {
     return Math.floor(solar.getJulianDay() - 0.5) + 0.5;
 }
 
-/** 自某日回溯，找出統領該日的上元符頭。上元符頭每十五日一見，故至多回溯十四日 */
-function findShangYuanFuTou(solar) {
-    const baseDay = toDayNumber(solar);
-    for (let back = 0; back < 15; back++) {
-        const day = Solar.fromJulianDay(baseDay - back);
-        const ganZhi = day.getLunar().getDayInGanZhiExact();
-        if (SHANG_YUAN_FU_TOU.includes(ganZhi)) {
-            return { ganZhi, solar: day, dayNumber: baseDay - back, elapsed: back };
-        }
+/** 自某日起，找出最近的上元符頭（含當日）。四符頭每十五日一見，故至多前推十四日 */
+function firstShangYuanOnOrAfter(dayNumber) {
+    for (let step = 0; step < 15; step++) {
+        const ganZhi = Solar.fromJulianDay(dayNumber + step).getLunar().getDayInGanZhiExact();
+        if (SHANG_YUAN_FU_TOU.includes(ganZhi)) return dayNumber + step;
     }
-    return null;
+    throw new Error('找不到上元符頭：十五日內未見甲子、己卯、甲午、己酉');
 }
 
-/**
- * 取最晚的節氣，使其交接日不遲於上元符頭後九日
- *
- * 這一步同時涵蓋超神、接氣與置閏。節氣在符頭之後為超神（符先節後），
- * 之前為接氣（節先符後），同日為正授。因符頭循環十五日、節氣平均十五點二日，
- * 兩者比值 15 ÷ 15.2 ≈ 0.987 略小於一，故此指標每約七十六個循環停滯一次；
- * 停滯即相鄰兩個符頭循環共用同一節氣，正是《寶鑒》所謂
- * 「遇芒種大雪，重用本氣三元」的置閏，無須外部錨點而自然湧現。
- *
- * @param {number} dayNumber - 區間中心之儒略日
- * @param {number} span - 需涵蓋的前後日數
- * @returns {Array<{day: number, name: string}>} 依日期排序的節氣序列
- */
-function collectJieQi(dayNumber, span) {
+/** 取一段年份內全部節氣，依日期排序 */
+function jieQiSequence(fromYear, toYear) {
     const found = new Map();
-    const low = dayNumber - span;
-    const high = dayNumber + span;
-    // 節氣表以農曆年為界，跨年時未必涵蓋所需區間，故按需向前後展開
-    for (const offsetYear of [0, -1, 1]) {
-        let min = Infinity;
-        let max = -Infinity;
-        const probe = Solar.fromJulianDay(dayNumber + offsetYear * 365);
-        for (const [rawName, jieQiSolar] of Object.entries(probe.getLunar().getJieQiTable())) {
-            const name = normalizeJieQiName(rawName);
-            if (!JIEQI_JUSHU[name]) continue;
-            const jieQiDay = toDayNumber(jieQiSolar);
-            if (jieQiDay < min) min = jieQiDay;
-            if (jieQiDay > max) max = jieQiDay;
-            found.set(jieQiDay, name);
+    for (let year = fromYear; year <= toYear; year++) {
+        for (const month of [2, 5, 8, 11]) {
+            const table = Solar.fromYmdHms(year, month, 15, 12, 0, 0).getLunar().getJieQiTable();
+            for (const [rawName, jieQiSolar] of Object.entries(table)) {
+                const name = normalizeJieQiName(rawName);
+                if (!JIEQI_JUSHU[name]) continue;
+                found.set(toDayNumber(jieQiSolar), name);
+            }
         }
-        if (offsetYear === 0 && min <= low && max >= high) break;
     }
     return [...found.entries()]
-        .map(([day, name]) => ({ day, name }))
-        .sort((a, b) => a.day - b.day);
+        .sort((a, b) => a[0] - b[0])
+        .map(([day, name]) => ({ day, name }));
 }
 
 /**
- * 自節氣序列中取不遲於上元符頭後九日者之最晚一個
+ * 走出符頭循環與節氣的對應鏈
  *
- * @param {Array<{day: number, name: string}>} sequence - 依日期排序的節氣序列
- * @param {number} fuTouDayNumber - 上元符頭之儒略日
- * @returns {{name: string, dayNumber: number, gapDays: number}|null}
+ * 每個上元符頭循環統領一個節氣，循環依序前推。因符頭循環固定十五日、
+ * 節氣平均十五點二一八日，節氣漸漸落到符頭之後（超神）；當**下一個節氣**
+ * 已遠在符頭之後八日以上（典籍作九日，含頭計數），且**當前節氣為芒種或大雪**時，
+ * 不取下一個節氣，而重用本節氣的三元——這就是置閏。
+ *
+ * 《統宗》康熙五十七年例把這一步寫得最清楚：「自十六甲子至二十四壬申，
+ * 已超九日，**為期大遠**。故十六日甲子不作夏至上局，而為芒種閏奇上局。」
+ * 觸發的是**候選節氣**（夏至）的日差，而閏落在**當前節氣**（芒種）。
+ *
+ * 遇小滿、小雪則不閏（《演義》「雖超九日、十日，不可置閏」），故日差可續增，
+ * 待下一個芒種或大雪方閏。
  */
-function pickGoverningJieQi(sequence, fuTouDayNumber) {
-    const limit = fuTouDayNumber + MAX_CHAO_SHEN_DAYS;
-    let best = null;
-    for (const item of sequence) {
-        if (item.day > limit) break;
-        best = item;
+function buildFuTouChain(sequence, startDayNumber, startIndex, untilDayNumber) {
+    const chain = [];
+    let dayNumber = startDayNumber;
+    let index = startIndex;
+    let previousIndex = null;
+
+    while (dayNumber <= untilDayNumber) {
+        let isLeap = false;
+        if (previousIndex !== null) {
+            const candidate = previousIndex + 1;
+            const candidateGap = candidate < sequence.length
+                ? sequence[candidate].day - dayNumber
+                : Infinity;
+            if (candidateGap >= LEAP_TRIGGER_GAP && LEAP_JIE_QI.includes(sequence[previousIndex].name)) {
+                index = previousIndex;          // 重用本氣三元
+                isLeap = true;
+            } else {
+                index = candidate;
+            }
+        }
+        if (index >= sequence.length) break;
+        chain.push({
+            符頭日: dayNumber,
+            節氣索引: index,
+            節氣: sequence[index].name,
+            日差: sequence[index].day - dayNumber,
+            閏局: isLeap
+        });
+        previousIndex = index;
+        dayNumber += 15;
     }
-    if (!best) return null;
-    return {
-        name: best.name,
-        dayNumber: best.day,
-        gapDays: Math.round(best.day - fuTouDayNumber)
-    };
+    return chain;
+}
+
+/** 鏈的起點年份。取遠早於常用範圍者，使查詢時多半可直接命中快取 */
+const CHAIN_DEFAULT_FROM_YEAR = 1700;
+
+/** 已算出的鏈（惰性建立，按需擴充） */
+let fuTouChainCache = null;
+
+/**
+ * 取得涵蓋指定日期的鏈
+ *
+ * 起步索引以「日差落在 [-6, 觸發值) 之內」的啟發式選出。實測起步索引偏移
+ * −1 至 +2 皆收斂到同一條鏈（因錯誤的起步會使日差落在有效帶之外，
+ * 而置閏規則會把它拉回），且《統宗》所記的正授可外部驗證整條鏈，見 test.js。
+ */
+function getFuTouChain(targetDayNumber) {
+    const targetYear = Solar.fromJulianDay(targetDayNumber).getYear();
+    const fromYear = Math.min(CHAIN_DEFAULT_FROM_YEAR, targetYear - 20);
+    const toYear = targetYear + 2;
+
+    if (fuTouChainCache
+        && fuTouChainCache.fromYear <= fromYear
+        && fuTouChainCache.toYear >= toYear) {
+        return fuTouChainCache.chain;
+    }
+
+    const sequence = jieQiSequence(fromYear - 1, toYear + 1);
+    const startDayNumber = firstShangYuanOnOrAfter(
+        toDayNumber(Solar.fromYmdHms(fromYear, 1, 1, 12, 0, 0))
+    );
+    let startIndex = -1;
+    for (let i = 0; i < sequence.length; i++) {
+        const gap = sequence[i].day - startDayNumber;
+        if (gap >= -6 && gap < LEAP_TRIGGER_GAP) { startIndex = i; break; }
+    }
+    if (startIndex < 0) throw new Error('無法決定符頭鏈的起步節氣');
+
+    const until = toDayNumber(Solar.fromYmdHms(toYear, 12, 31, 12, 0, 0));
+    const chain = buildFuTouChain(sequence, startDayNumber, startIndex, until);
+    fuTouChainCache = { fromYear, toYear, chain };
+    return chain;
+}
+
+/** 供測試取用整條鏈 */
+export function getFuTouChainForRange(fromYear, toYear) {
+    const sequence = jieQiSequence(fromYear - 1, toYear + 1);
+    const startDayNumber = firstShangYuanOnOrAfter(
+        toDayNumber(Solar.fromYmdHms(fromYear, 1, 1, 12, 0, 0))
+    );
+    let startIndex = -1;
+    for (let i = 0; i < sequence.length; i++) {
+        const gap = sequence[i].day - startDayNumber;
+        if (gap >= -6 && gap < LEAP_TRIGGER_GAP) { startIndex = i; break; }
+    }
+    const until = toDayNumber(Solar.fromYmdHms(toYear, 12, 31, 12, 0, 0));
+    return buildFuTouChain(sequence, startDayNumber, startIndex, until);
 }
 
 /**
  * 符頭法定局（超神接氣置閏）
  *
- * 這是九部典籍的主流定局法，與本專案預設的拆補法並行提供，兩者對同一時刻
- * 多數情況給出不同局數。《寶鑒御定》記錄了兩派之爭：李氏主拆補而斥超閏，
- * 寶鑒斥拆補「以亂符頭」「殊違尊甲之旨」。本專案不代為擇一，兩法俱備。
+ * 這是九部典籍的主流定局法，與本專案預設的拆補法並行提供。《寶鑒御定》
+ * 記錄了兩派之爭：李氏主拆補而斥超閏，寶鑒斥拆補「以亂符頭」「殊違尊甲之旨」。
+ * 本專案不代為擇一，兩法俱備。
  *
  * 演算法（日粒度）：
  *   1. 回溯至統領該日的上元符頭 U（甲子／己卯／甲午／己酉，至多十四日）
  *   2. 元 = ⌊(所問日 − U) ÷ 5⌋，即上元、中元、下元
- *   3. 取最晚的節氣，使其交接日不遲於 U 後九日
- *   4. 由節氣與三元查 JIEQI_JUSHU 得局數
+ *   3. 該循環所用之節氣，由 buildFuTouChain 走出的鏈決定——**置閏綁在芒種與大雪**，
+ *      而非落在算術上被迫重複的那個節氣
  *
- * 第 3 步的十五比十五點二之比自然產生置閏，見 findGoverningJieQi 說明。
- * 《法竅》〈論拆局補局〉的兩則算例皆可由此重現，見 test.js。
+ * 驗證：《統宗》康熙五十六至五十八年的完整算例十個檢核點、
+ * 《法竅》〈論拆局補局〉兩則算例七個檢核點，皆逐日重現，見 test.js。
+ * 《統宗》所記的正授（康熙五十八年立秋）另作為整條鏈的外部錨點。
  *
- * 未涵蓋兩事，皆已知而從缺：
- *   - 時粒度的疊局。《法竅》該例謂「子丑二時與寅初之三刻，卻是己酉上元符頭
- *     統領，法當疊」，本實作為日粒度，該日全日歸於同一元。
- *   - 置閏之節氣。《寶鑒》古法謂閏當推遲至「二至之前」的芒種或大雪；
- *     本實作令其落在算術上被迫重複的那個節氣。兩者相去多寡見 test.js 的量測。
+ * 已知從缺：**時粒度的疊局**。《法竅》該例謂「子丑二時與寅初之三刻，
+ * 卻是己酉上元符頭統領，法當疊」，本實作為日粒度，該日全日歸於同一元；
+ * 故 1962-09-08 白露交於寅初三刻，《法竅》作「符先節後，法當用超」
+ * 而本專案作「正授」。test.js 以斷言釘住此一分歧。
  *
  * @param {Object} solar - lunar-javascript 的 Solar 對象
  * @param {Object} jieQiJuShu - 節氣局數配置表
@@ -650,55 +764,54 @@ function pickGoverningJieQi(sequence, fuTouDayNumber) {
  * @returns {Object} 定局結果，另含符頭與超接資訊
  */
 export function calculateJuByFuTou(solar, jieQiJuShu, yuanNames) {
-    const fuTou = findShangYuanFuTou(solar);
-    if (!fuTou) {
-        throw new Error('無法定出上元符頭：回溯十四日內未見甲子、己卯、甲午、己酉');
-    }
+    const target = toDayNumber(solar);
+    const chain = getFuTouChain(target);
 
-    const yuan = Math.floor(fuTou.elapsed / 5);
+    // 鏈依符頭日遞增，故以二分取最後一個不遲於所問之日者
+    let low = 0;
+    let high = chain.length - 1;
+    let found = -1;
+    while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (chain[mid].符頭日 <= target) { found = mid; low = mid + 1; }
+        else high = mid - 1;
+    }
+    if (found < 0) throw new Error('符頭鏈未涵蓋所問之日');
+    const cycle = chain[found];
+
+    const elapsed = target - cycle.符頭日;
+    const yuan = Math.floor(elapsed / 5);
     if (yuan < 0 || yuan > 2) {
-        throw new Error(`三元越界：距上元符頭 ${fuTou.elapsed} 日`);
+        throw new Error(`三元越界：距上元符頭 ${elapsed} 日`);
     }
 
-    // 本元之符頭：自上元符頭起每五日一換（甲、己相間）
-    const yuanFuTou = Solar.fromJulianDay(fuTou.dayNumber + yuan * 5)
-        .getLunar().getDayInGanZhiExact();
-
-    // 一次取足節氣序列，本循環與前一循環共用（後者僅為判定閏局）
-    const sequence = collectJieQi(fuTou.dayNumber, 40);
-    const jieQi = pickGoverningJieQi(sequence, fuTou.dayNumber);
-    if (!jieQi) {
-        throw new Error('無法定出所用之節氣');
-    }
-
-    const config = jieQiJuShu[jieQi.name];
-    if (!config) {
-        throw new Error(`未知的節氣：${jieQi.name}`);
-    }
+    const config = jieQiJuShu[cycle.節氣];
+    if (!config) throw new Error(`未知的節氣：${cycle.節氣}`);
 
     // 節氣在符頭之後為超神（符先節後），之前為接氣（節先符後），同日為正授
     let chaoJie;
-    if (jieQi.gapDays === 0) chaoJie = '正授';
-    else if (jieQi.gapDays > 0) chaoJie = '超神';
+    if (cycle.日差 === 0) chaoJie = '正授';
+    else if (cycle.日差 > 0) chaoJie = '超神';
     else chaoJie = '接氣';
 
-    // 前一循環若共用同一節氣，本循環即為重用本氣三元的閏局
-    const previous = pickGoverningJieQi(sequence, fuTou.dayNumber - 15);
-    const isLeap = Boolean(previous) && previous.dayNumber === jieQi.dayNumber;
+    const shangYuanFuTou = Solar.fromJulianDay(cycle.符頭日)
+        .getLunar().getDayInGanZhiExact();
+    const yuanFuTou = Solar.fromJulianDay(cycle.符頭日 + yuan * 5)
+        .getLunar().getDayInGanZhiExact();
 
     return {
-        jieQiName: jieQi.name,
+        jieQiName: cycle.節氣,
         yuan,
         yuanName: yuanNames[yuan],
         isYang: config.yang,
         yinYang: config.yang ? '陽' : '陰',
         gameNumber: config.ju[yuan],
         定局法: '符頭',
-        上元符頭: fuTou.ganZhi,
+        上元符頭: shangYuanFuTou,
         符頭: yuanFuTou,
         超接: chaoJie,
-        超接天數: Math.abs(jieQi.gapDays),
-        閏局: isLeap
+        超接天數: Math.abs(cycle.日差),
+        閏局: cycle.閏局
     };
 }
 

@@ -144,20 +144,36 @@ expected value from whatever the declaration says and compares it against realit
 nothing checks is decoration.
 
 **Two 定局法 schools, both shipped.** `generateChartByDatetime(datetime, {定局法})` takes
-`'拆補'` (default) or `'符頭'`. They are not two names for one thing — **92.6% of 2024's
+`'拆補'` (default) or `'符頭'`. They are not two names for one thing — **97.3% of 2024's
 hours get a different bureau**. 《寶鑒御定》 records the fight verbatim: it calls the
 拆補 school 「創為拆補以亂符頭」「殊違尊甲之旨」. The project picks neither.
 
 符頭法 (`calculateJuByFuTou`): the 上元符頭 are only 甲子/己卯/甲午/己酉 (every 15 days);
-元 = ⌊days since ÷ 5⌋; the governing 節氣 is the latest one **no later than 上元符頭 + 9 days**
-(《寶鑒》「起超不可過九日」). 置閏 **emerges** from 15 ÷ 15.2184 = 0.9857 < 1 — the index
-stalls every ~69 節氣, i.e. two cycles share one 節氣 = 「重用本氣三元」. No anchor needed.
-Measured 1900–2100: offset range exactly [接氣6, 超神9], 91 leaps ≈ one per 2.2 years.
+元 = ⌊days since ÷ 5⌋; each cycle governs the next 節氣 in order — **except when it leaps**.
 
-Known gaps, both pinned by numbers in test.js: (1) day granularity, so 《法竅》's hour-level
-疊局 is not modelled; (2) the leap lands on the arithmetically-forced 節氣 rather than being
-deferred to 芒種/大雪 as 《寶鑒》 prescribes — costing 21 skipped 節氣 per 200 years, all in
-winter. Deferring would fix it and is the obvious next step.
+**置閏 is anchored to 芒種 and 大雪, not to a day count.** Three books agree:
+《演義》「置閏定在芒種、大雪之後。設遇小滿、小雪二氣之交，**雖超九日、十日，不可置閏**」;
+《寶鑒》「遇芒種大雪，重用本氣三元」. The day count is only the *window* that enables it
+(《演義》「超越經旬或九朝，或過十一日無饒。**閏奇額在斯三日**」). 《統宗》's 康熙 57 example
+shows the mechanism: the trigger is that the **candidate** 節氣 (夏至) sits too far from the
+符頭 (「為期大遠」), and the leap lands on the **current** 節氣 (芒種).
+
+**Counting convention**: the classics count inclusively. Their 「超九日」 is a calendar gap of
+8 (五月十六 to 五月廿四). The `超接天數` field reports the plain calendar gap, so classical
+figures run one higher.
+
+**The chain is walked by rule from an arbitrary early start — no historical date is fed in.**
+《統宗》's recorded 正授 (康熙五十八年立秋 = 1719-08-08, 「本日即是陰遁二局」) therefore
+emerges on its own, and test.js asserts it. The anchor is a *check*, not an input — same
+pattern as the basis declarations.
+
+Measured 1800–2100: 105 leaps (one per 2.87 years vs theory 2.86), **all at 芒種 or 大雪**,
+and **no 節氣 skipped** (統宗「俾三元之次序不紊」).
+
+Known gaps: (1) hour-level 疊局 is not modelled — 1962-09-08 白露 crosses at 寅初三刻, so
+《法竅》 says 「符先節後，法當用超」 where this project says 正授; test.js pins that divergence.
+(2) 《秘笈大全》 records a second threshold (「有過十四日而值閏者」) with no rule and no worked
+example, so it is recorded in `FU_TOU_LEAP_THRESHOLD_VARIANT` rather than implemented.
 
 **Chai Bu Method (拆補法)**: The default. It measures elapsed time from the transition instant. It measures elapsed time from the exact solar-term **transition instant** (via Julian day, fractional) and divides into three Yuan periods: 上元 = [0, 5) days, 中元 = [5, 10) days, 下元 = 10+ days. `節後天數` is 0-based (the solar-term day itself is `0`).
 
