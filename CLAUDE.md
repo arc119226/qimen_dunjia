@@ -17,7 +17,7 @@ npm test
 node test.js
 ```
 
-Runs the test suite (42 assertions, ~0.5s) covering:
+Runs the test suite (94 tests, ~1.4s) covering:
 - Five-layer golden values for Yang/Yin bureaus, different game numbers, and Jia hiding
 - `generateChartByDatetime` API (datetime parsing, solar terms, Yuan periods)
 - Full-year sweep: all 366 days of 2024 must chart successfully and cover all 24 solar terms
@@ -30,12 +30,19 @@ which is why a bug that made ~32 days a year uncharted shipped with "21 tests pa
 
 ### Building Distribution Files
 ```bash
-npm run build            # ES Module → dist/qimen.min.js (~13KB)
-npm run build:standalone # IIFE → dist/qimen.standalone.min.js (~337KB)
+npm run build            # ES Module → dist/qimen.min.js (~65KB)
+npm run build:standalone # IIFE → dist/qimen.standalone.min.js (~391KB)
+
+Both npm scripts run `build.mjs`. It uses esbuild's JS API rather than the CLI for one
+reason: the standalone bundle embeds lunar-javascript, and MIT requires its notice to
+travel with the copy — `--minify` strips comments and lunar.js has no banner, so the
+build must add it. The notice's version is read from node_modules, so a dependency bump
+changes the artifact and CI's dist-sync check catches an unrebuilt commit.
 ```
 
 ### Running in Browser
-Open `index.html` directly in a browser - loads lunar-javascript via CDN.
+Open `index.html` directly in a browser — it loads `dist/qimen.standalone.min.js`
+(self-contained, no CDN, works offline). Rebuild dist after changing any source file.
 
 ### Node.js Usage
 
@@ -190,7 +197,7 @@ Note this is deliberately instant-based, not calendar-day-based: the Yuan bounda
 - Calculates Xun Shou and Fu Shou from time pillar
 - Resolves Jia hiding logic
 - Calls all five layer calculations in sequence
-- Returns a Map with 26+ keys including pillars, game info, and all five layers
+- Returns a Map with 35 keys including pillars, game info, and all five layers
 - Provides convenience APIs: `generateChartByDatetime()` and `generateChartNow()`
 
 **constants.js**: Contains all lookup tables including:
@@ -315,7 +322,8 @@ The legacy positional form `generateQimenChart(id, [...])` still works — `norm
 7. Calculate Eight Doors: '癸' at 坎 → Zhi Shi door is 休門, then fly 6 palaces (Yang = clockwise through the nine palaces)
 8. Calculate Nine Stars: '癸' at 坎 → Zhi Fu star is 天蓬; 落宮 is read back from the resulting 九星 array
 9. Calculate Eight Gods: Start from time stem '庚' position, use Yang deity sequence
-10. Return Map with 29 fields (32 via `generateChartByDatetime`, which adds 節氣/三元/節後天數)
+10. Return Map with 35 fields — 41 via `generateChartByDatetime` (adds 節氣/三元/定局法/
+    節後天數/時間基準/曆法基準), 45 with `{定局法:'符頭'}` (adds 上元符頭/符頭/超接/超接天數/閏局)
 
 ## Important Implementation Notes
 
@@ -346,7 +354,7 @@ When modifying calculations, always run `npm test` to verify against known-good 
 
 ## Browser vs Node.js
 
-- **Browser**: `index.html` loads lunar-javascript via CDN
+- **Browser**: `index.html` loads `dist/qimen.standalone.min.js` (lunar-javascript inlined; no CDN)
 - **Node.js**: Requires `npm install lunar-javascript` - uses external package
 - Both modes use identical calculation logic from the JS modules
 - Web UI provides date/time input with auto four-pillar calculation
@@ -364,8 +372,9 @@ This project uses **bundled dist + GitHub auto source** release model.
 ### Zip Contents
 ```
 qimen-dunjia-v{version}.zip
-├── qimen.min.js           # ES Module (~13KB, requires lunar-javascript)
-├── qimen.standalone.min.js # IIFE (~337KB, includes lunar-javascript)
+├── qimen.min.js           # ES Module (~65KB, requires lunar-javascript)
+├── qimen.standalone.min.js # IIFE (~391KB, includes lunar-javascript)
+├── THIRD-PARTY-LICENSES.txt # notice for the embedded lunar-javascript
 ├── API.md                 # API documentation
 └── index.html             # Web demo
 ```

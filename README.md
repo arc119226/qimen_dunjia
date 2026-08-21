@@ -136,7 +136,7 @@ npm install
 
 | 指令 | 說明 |
 |------|------|
-| `npm test` | 執行單元測試（21 個測試案例） |
+| `npm test` | 執行單元測試（94 個測試，約 1.4 秒） |
 | `npm run build` | 打包為 ES Module（排除 lunar-javascript） |
 | `npm run build:standalone` | 打包為獨立 IIFE（包含所有依賴） |
 
@@ -909,17 +909,25 @@ qimen/
 │                   # - 河圖、洛書基礎
 │                   # - 地盤、天盤計算
 │                   # - 八門、九星、八神飛布
-│                   # - 拆補法定局（calculateJuByChaiBu）
+│                   # - 定局：拆補（calculateJuByChaiBu）
+│                   #       符頭（calculateJuByFuTou，超神接氣置閏）
 ├── qimen.js        # 主控函數
 │                   # - generateQimenChart：手動起盤
-│                   # - generateChartByDatetime：日期時間起盤
+│                   # - generateChartByDatetime：日期時間起盤（可選定局法）
 │                   # - generateChartNow：當前時間起盤
 │                   # - chartToObject / chartToJSON：格式轉換
-├── test.js         # 測試模組（21 個測試案例）
+├── patterns.js     # 判斷層（與 qimen.js 並列，非其下游）
+│                   # - detectPatterns：格局十一條
+│                   # - detectShiGanKeYing：十干克應 81 格（帶斷語）
+│                   # - assessVigor：旺相休囚（九星四家並列、八門八節輪轉）
+│                   # - 每則判斷帶出處（書／篇／原文），異說並列不代為擇一
+├── build.mjs       # 建置腳本（含第三方授權聲明）
+├── test.js         # 測試模組（94 個測試，約 1.4 秒）
 ├── package.json    # 專案配置（ES Module）
 ├── dist/           # 打包輸出目錄（npm run build 生成）
-│   ├── qimen.min.js           # ES Module 格式（~13KB，需外部 lunar-javascript）
-│   ├── qimen.standalone.min.js # IIFE 格式（~337KB，已包含 lunar-javascript）
+│   ├── qimen.min.js           # ES Module 格式（~65KB，需外部 lunar-javascript）
+│   ├── qimen.standalone.min.js # IIFE 格式（~391KB，已包含 lunar-javascript）
+│   ├── THIRD-PARTY-LICENSES.txt # 內嵌之第三方軟體授權
 │   └── API.md                 # 打包產物使用說明
 ├── CHANGELOG.md    # 版本歷史
 └── README.md       # 本文件
@@ -944,8 +952,9 @@ qimen/
 
 ```
 qimen-dunjia-v{版本號}.zip
-├── qimen.min.js           # ES Module（~13KB，需外部 lunar-javascript）
-├── qimen.standalone.min.js # IIFE（~337KB，瀏覽器直接使用）
+├── qimen.min.js           # ES Module（~65KB，需外部 lunar-javascript）
+├── qimen.standalone.min.js # IIFE（~391KB，瀏覽器直接使用）
+├── THIRD-PARTY-LICENSES.txt # 內嵌之第三方軟體授權（MIT 條款要求隨副本散布）
 ├── API.md                 # API 使用說明
 └── index.html             # 網頁示例
 ```

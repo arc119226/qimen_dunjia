@@ -4,7 +4,7 @@
  * 統一入口點模組，匯出所有公開 API
  * 
  * @module qimen-dunjia
- * @version 2.2.0
+ * @version 3.0.0
  * @author Refactored with improved maintainability
  * 
  * 系統架構說明：

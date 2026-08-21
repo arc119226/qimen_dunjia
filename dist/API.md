@@ -1,4 +1,4 @@
-# 奇門遁甲 API v2.2.0
+# 奇門遁甲 API v3.0.0
 
 本文件說明打包產物的使用方式。
 
@@ -8,8 +8,11 @@
 
 | 檔案 | 格式 | 大小 | 用途 |
 |------|------|------|------|
-| `qimen.min.js` | ES Module | ~13KB | Node.js / Bundler（需外部 lunar-javascript） |
-| `qimen.standalone.min.js` | IIFE | ~337KB | 瀏覽器直接使用（已包含 lunar-javascript） |
+| `qimen.min.js` | ES Module | ~65KB | Node.js / Bundler（需外部 lunar-javascript） |
+| `qimen.standalone.min.js` | IIFE | ~391KB | 瀏覽器直接使用（已包含 lunar-javascript） |
+
+`qimen.standalone.min.js` 內嵌 lunar-javascript（MIT，© 2018 6tail），其授權聲明
+隨產物 banner 散布，另見同目錄的 `THIRD-PARTY-LICENSES.txt`。
 
 ---
 

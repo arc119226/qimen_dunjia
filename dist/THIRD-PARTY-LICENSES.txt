@@ -1,4 +1,4 @@
-qimen-dunjia v2.2.0 的打包產物 dist/qimen.standalone.min.js
+qimen-dunjia v3.0.0 的打包產物 dist/qimen.standalone.min.js
 內嵌下列第三方軟體。dist/qimen.min.js 不內嵌，改以外部相依方式引入。
 
 本檔由 build.mjs 自 node_modules 直接產生，請勿手動編輯。
