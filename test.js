@@ -9,8 +9,9 @@
  * 都只證明了程式不會 crash。
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { Solar } from 'lunar-javascript';
+import { verifyAllCitations, BOOK_FILES, NOT_A_SINGLE_FILE } from './scripts/verify-citations.mjs';
 import {
     generateQimenChart,
     generateChartByDatetime,
@@ -38,6 +39,10 @@ import {
     getXunKongWang,
     getOppositeZhi,
     getDiPan,
+    calculateTianPan,
+    calculateNineStars,
+    calculateEightGods,
+    calculateEightDoors,
     getFuShou,
     getXunHead,
     ELEMENT_OVERCOMES,
@@ -49,6 +54,7 @@ import {
     detectMenPo,
     detectFuYin,
     detectFanYin,
+    SOURCES,
     getFuTouChainForRange,
     FU_TOU_ZHENG_SHOU_ANCHOR,
     FU_TOU_LEAP_THRESHOLD_VARIANT,
@@ -2346,6 +2352,162 @@ const DETECTOR_REQUIRED_FIELDS = [
     { 名: 'assessVigor', fn: assessVigor, 欄位: ['九星'] }
 ];
 
+// ============================================================================
+// 引文核對
+// ============================================================================
+
+/**
+ * 讓出處可被證偽
+ *
+ * 「每則判斷帶出處」是本專案的第一原則，但在此之前，**唯一的檢查是
+ * 「書、篇、文三欄非空」**——原文改成「（原文從缺）」、書名篇名改成假名，
+ * 測試都不會紅。這些字串是整個判斷層可信度的載體，卻是全專案最無法被
+ * 證偽的部分。
+ *
+ * `scripts/verify-citations.mjs` 把每一條引文拿去語料中回查。語料是公有領域
+ * 古籍的純文字檔、不在本 repo，故此測試**在語料存在時才跑，不存在時明白跳過**
+ * ——跳過會印在報告上，不會被誤當成通過。
+ *
+ * **它釘得住什麼、釘不住什麼：**
+ *   釘得住：抄寫忠實度——引文是否真的出自所引之書。
+ *   釘不住：引文為真但**不支持程式據以實作的解讀**。門迫的篇名誤植、
+ *           旺相的孤證異文，都是引文為真而解讀有誤，那只能靠人讀。
+ */
+// ============================================================================
+// 五層運算的入口守衛
+// ============================================================================
+
+/**
+ * 這五個函數是公開 API，README 教使用者直接呼叫
+ *
+ * 但它們原本完全不擋錯：傳入不在地盤上的干（最典型的就是「甲」）時，
+ * `indexOf` 回 -1，被下游靜默當成中宮處理，產出一張**看起來完整、
+ * 實際錯位**的盤。主 API `generateQimenChart` 早有完整驗證，
+ * 缺口正在使用者被教著走的那條路上。
+ */
+function runLayerGuardTest() {
+    const t = createAsserter();
+    const diPan = getDiPan(true, 5);
+
+    const throwsWith = fn => {
+        try { fn(); return null; } catch (e) { return e.message; }
+    };
+
+    // 一、甲不上盤——這是典籍的不變量，先驗它本身
+    // 《寶鑒御定》〈釋六儀遁六甲〉：六甲遁於六儀之下
+    let plates = 0;
+    for (const isYang of [true, false]) {
+        for (let ju = 1; ju <= 9; ju++) {
+            const plate = getDiPan(isYang, ju);
+            plates++;
+            t.equal(plate.length, 9, `${isYang ? '陽' : '陰'}遁${ju}局應為九格`);
+            t.equal(plate.indexOf('甲'), -1,
+                    `${isYang ? '陽' : '陰'}遁${ju}局的地盤不應有甲（六甲遁於六儀之下）`);
+        }
+    }
+    t.equal(plates, 18, '十八局俱應檢查');
+
+    // 二、傳入甲時，錯誤訊息要點明甲遁——那是最可能的原因
+    for (const [名, 呼叫] of [
+        ['calculateTianPan', () => calculateTianPan(true, '甲', '戊', diPan)],
+        ['calculateNineStars', () => calculateNineStars('天蓬', '甲', diPan)],
+        ['calculateEightGods', () => calculateEightGods(true, '甲', diPan)]
+    ]) {
+        const message = throwsWith(呼叫);
+        t.ok(message !== null, `${名} 傳入甲應拋錯，而非靜默產出錯位的盤`);
+        if (!message) continue;
+        t.ok(message.includes(名), `${名} 的錯誤訊息應指名自己`);
+        t.ok(message.includes('甲遁'), `${名} 的錯誤訊息應點明甲遁，那是最可能的原因`);
+        // 訊息的價值在於告訴人怎麼辦，故解法指引也要釘住
+        t.ok(message.includes('符首'), `${名} 的錯誤訊息應指出解法（以符首代之）`);
+    }
+
+    // 三、符首亦須在盤上
+    const fuShouBad = throwsWith(() => calculateTianPan(true, '戊', '甲', diPan));
+    t.ok(fuShouBad !== null && fuShouBad.includes('符首'), '符首不在盤上應拋錯並指名');
+    const doorBad = throwsWith(() => calculateEightDoors(true, '休門', 3, '甲', diPan));
+    t.ok(doorBad !== null && doorBad.includes('符首'), '八門：符首不在盤上應拋錯');
+
+    // 四、九星與八門之名須合法
+    const starBad = throwsWith(() => calculateNineStars('天霸', '戊', diPan));
+    t.ok(starBad !== null && starBad.includes('九星'), '非九星之名應拋錯');
+    const gateBad = throwsWith(() => calculateEightDoors(true, '吉門', 3, '戊', diPan));
+    t.ok(gateBad !== null && gateBad.includes('八門'), '非八門之名應拋錯');
+
+    // 五、地盤形狀
+    for (const bad of [null, undefined, '戊', ['戊'], new Array(8).fill('戊')]) {
+        const message = throwsWith(() => calculateTianPan(true, '戊', '戊', bad));
+        t.ok(message !== null, `地盤為 ${JSON.stringify(bad)} 應拋錯`);
+        t.ok(message !== null && message.includes('九格'),
+             `地盤形狀的錯誤訊息應說明應為九格`);
+    }
+
+    // 六、正常路徑一格未動——守衛不得改變任何既有輸出
+    let charts = 0;
+    for (const isYang of [true, false]) {
+        for (let ju = 1; ju <= 9; ju++) {
+            const plate = getDiPan(isYang, ju);
+            for (const gan of plate) {
+                t.ok(Array.isArray(calculateTianPan(isYang, gan, plate[0], plate)),
+                     `陽陰${ju}局 ${gan} 的天盤應照常產出`);
+                charts++;
+            }
+        }
+    }
+    t.equal(charts, 162, '十八局各九干，共一百六十二組皆應照常運算');
+
+    record(`五層運算入口守衛（十八局皆無甲，${charts} 組正常路徑無回歸）`,
+           truncate(t.errors, 10));
+}
+
+function runCitationTest() {
+    const t = createAsserter();
+
+    // 一、不依賴語料的結構檢查：每一條都要有書、篇、文
+    const entries = Object.entries(SOURCES);
+    t.ok(entries.length >= 19, `SOURCES 應有十九條以上，實得 ${entries.length}`);
+    for (const [key, source] of entries) {
+        t.ok(!!source.書 && !!source.篇 && !!source.文, `${key} 的書篇文三欄應齊備`);
+        t.ok(Object.isFrozen(source), `${key} 應凍結`);
+        // 有校記必有核對片段，反之亦然——宣告了出入就必須留下可核對的部分
+        t.equal(Boolean(source.校記), Boolean(source.核對片段),
+                `${key} 的校記與核對片段須成對出現`);
+    }
+
+    // 二、同一部書不得有兩種寫法。此前 SOURCES 中「奇門寶鑑御定」與
+    //     「奇門寶鑒御定」並存，指的是同一部書——正是核對器抓出來的。
+    const books = [...new Set(entries.map(([, s]) => s.書))];
+    const CORPUS_BOOKS = Object.keys(BOOK_FILES).concat(NOT_A_SINGLE_FILE);
+    for (const book of books) {
+        t.ok(CORPUS_BOOKS.includes(book),
+             `書名「${book}」不在語料檔對照表中——同一部書是否有兩種寫法？`);
+    }
+
+    // 三、語料存在時，逐條回查
+    const corpus = process.env.QIMEN_CORPUS || 'C:/gitcode/doc';
+    const hasCorpus = existsSync(`${corpus}/奇門遁甲統宗.txt`);
+    if (!hasCorpus) {
+        record(`引文核對（結構檢查 ${entries.length} 條；語料不在 ${corpus}，逐條回查已跳過）`,
+               t.errors);
+        return;
+    }
+
+    const results = verifyAllCitations(corpus);
+    const bad = results.filter(r => r.狀態 === '不符' || r.狀態 === '失敗');
+    for (const r of truncate(bad, 8)) {
+        t.errors.push(typeof r === 'string' ? r
+            : `${r.key}：${r.狀態}　${r.說明}${r.未命中 ? '　未命中：' + r.未命中[0] : ''}`);
+    }
+    const missing = results.filter(r => r.狀態 === '無語料');
+    t.equal(missing.length, 0,
+            `有語料目錄卻找不到部分書：${missing.map(r => r.key).join('、')}`);
+
+    const tally = {};
+    for (const r of results) tally[r.狀態] = (tally[r.狀態] || 0) + 1;
+    record(`引文核對（${Object.entries(tally).map(([k, v]) => `${k} ${v}`).join('、')}）`,
+           t.errors);
+}
+
 function runJudgementGuardTest() {
     const t = createAsserter();
 
@@ -3633,6 +3795,8 @@ function runAllTests() {
     runMenGongRelationTest();
 
     runJudgementGuardTest();
+    runCitationTest();
+    runLayerGuardTest();
     runKeYingJudgementTest();
     runBaojianXiongAnchorTest();
     runKeYingNameSourceTest();

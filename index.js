@@ -173,6 +173,7 @@ export {
 
 // 匯出格局判斷
 export {
+    SOURCES,
     detectPatterns,
     detectFuYin,
     detectFanYin,

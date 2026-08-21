@@ -271,6 +271,29 @@ Note this is deliberately instant-based, not calendar-day-based: the Yuan bounda
 
 **patterns.js**: Pattern judgment (格局). Reads a finished chart, returns findings.
 
+**Citations are verifiable, not decorative.** `scripts/verify-citations.mjs` takes every
+`SOURCES` entry and looks it up in the corpus. Before this, the only check was that 書/篇/文
+were non-empty — replacing a quote with 「（原文從缺）」 passed. The corpus is not in the repo
+(public-domain texts, kept locally), so the test runs it **only when the corpus is present and
+reports a visible skip otherwise** — never a silent pass. Point it elsewhere with
+`QIMEN_CORPUS`, or run `node scripts/verify-citations.mjs [dir]`.
+
+Two declaration fields exist for quotes that deviate from the corpus: `校記` (what the corpus
+actually says and why we differ — 訛字, over-eager 簡→繁 conversion, elision) and `核對片段`
+(the spans that *are* verbatim, still checked one by one). They must appear together.
+Editorial remarks go in `按`, never inside 文.
+
+**What it pins and what it does not**: transcription fidelity, yes; "the quote is real but does
+not support the reading the code implements", no — the 門迫 chapter misattribution and the
+旺相 single-witness variant were both of that second kind, and only a human reading caught them.
+
+**Layer functions guard their inputs.** The five layer calculations are publicly exported and
+README tells users to call them, but they used to accept a stem that is not on the plate — most
+obviously 甲 — and silently produce a mis-rotated chart via `indexOf` returning -1. The guard
+tests membership *in the 地盤*, not membership in the ten stems, because **甲 never reaching the
+plate is a classical invariant** (《寶鑒御定》〈釋六儀遁六甲〉), and test.js sweeps all 18
+bureaus to confirm no cell holds 甲.
+
 **Entry guards.** Every detector and `detectPatterns` calls `requireChartFields()` first.
 This is not DX polish — without it `detectFanYin({})` fabricates a 「反吟・凶」 finding
 carrying a genuine 煙波釣叟歌 citation, i.e. a **false 凶格 with a real source attached**,

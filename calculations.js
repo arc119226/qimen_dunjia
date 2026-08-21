@@ -103,6 +103,49 @@ export function calculateFlyingStars(centerStar, isYang) {
  * @param {number} gameNumber - 局數（1-9）
  * @returns {Array<string>} 九宮各位置的天干
  */
+/**
+ * 五層運算的入口守衛
+ *
+ * 這五個函數都由 index.js 公開匯出、README 亦列為公開 API，等於邀請使用者
+ * 直接呼叫。但它們原本完全不擋錯：傳入**不在地盤上的干**（最典型的就是「甲」）
+ * 時，`indexOf` 回 -1，被下游的 `generatePutSequence` 或 `rotateMapping`
+ * 靜默當成中宮處理，產出一張看起來完整、實際錯位的盤。
+ *
+ * 甲不上盤是有典籍背書的不變量，非本專案的實作約定——《寶鑒御定》
+ * 〈釋六儀遁六甲〉：六甲遁於六儀之下，故十八局的地盤無一格是甲。
+ * 以之為守衛的條件，比檢查「是不是十干之一」更貼近事實。
+ *
+ * 主 API `generateQimenChart` 早有完整驗證，故此處補的是「使用者直接呼叫
+ * 各層」時的缺口——那正是 README 教他們做的事。
+ */
+
+/** 地盤應為九格的陣列 */
+function requireDiPan(diPan, caller) {
+    if (!Array.isArray(diPan) || diPan.length !== 9) {
+        throw new Error(
+            `${caller}：地盤應為九格的陣列，實得 ${
+                Array.isArray(diPan) ? `${diPan.length} 格` : typeof diPan
+            }。可用 getDiPan(isYang, gameNumber) 取得。`
+        );
+    }
+}
+
+/**
+ * 該干必須在地盤上
+ *
+ * 甲遁於六儀之下，永不上盤——若傳入甲，多半是呼叫端漏了甲遁的解析
+ * （見 qimen.js 的 resolveJiaHiding）。錯誤訊息直接點明此事，
+ * 因為那是最可能的原因。
+ */
+function requireOnPlate(gan, diPan, caller, label) {
+    if (diPan.indexOf(gan) !== -1) return;
+    const hint = gan === '甲'
+        ? '甲遁於六儀之下，永不上盤（《寶鑒御定》〈釋六儀遁六甲〉），' +
+          '應先以符首代之——見 qimen.js 的甲遁解析。'
+        : `地盤為 ${JSON.stringify(diPan)}。`;
+    throw new Error(`${caller}：${label}「${gan}」不在地盤上。${hint}`);
+}
+
 export function getDiPan(isYang, gameNumber) {
     const diPanConfig = isYang ? DIPAN_YANG : DIPAN_YIN;
     const result = diPanConfig[gameNumber];
@@ -130,6 +173,9 @@ export function getDiPan(isYang, gameNumber) {
  * @returns {Array<string>} 天盤九宮分布
  */
 export function calculateTianPan(isYang, tianGan, fuShou, diPan) {
+    requireDiPan(diPan, 'calculateTianPan');
+    requireOnPlate(tianGan, diPan, 'calculateTianPan', '時干');
+    requireOnPlate(fuShou, diPan, 'calculateTianPan', '符首');
     const targetIndex = diPan.indexOf(tianGan);
     const sourceIndex = diPan.indexOf(fuShou);
     
@@ -239,6 +285,11 @@ export function isZhiFuInCenter(tianGan, diPan) {
  * @returns {Array<string>} 八門飛布後的九宮分布
  */
 export function calculateEightDoors(isYang, zhiShiDoor, flyStep, fuShou, diPan) {
+    requireDiPan(diPan, 'calculateEightDoors');
+    requireOnPlate(fuShou, diPan, 'calculateEightDoors', '符首');
+    if (EIGHT_DOORS_SEQUENCE.indexOf(zhiShiDoor) === -1) {
+        throw new Error(`calculateEightDoors：值使門「${zhiShiDoor}」不在八門之列`);
+    }
     // 計算值使門飛抵的宮位，再處理中宮替代
     const zhiShiTargetIndex = normalizeZhongPalace(
         getZhiShiTargetIndex(isYang, flyStep, fuShou, diPan)
@@ -349,6 +400,11 @@ export function getZhiFuStarPosition(zhiFuStar, nineStars) {
  * @returns {Array<string>} 九星飛布後的九宮分布
  */
 export function calculateNineStars(zhiFuStar, tianGan, diPan) {
+    requireDiPan(diPan, 'calculateNineStars');
+    requireOnPlate(tianGan, diPan, 'calculateNineStars', '時干');
+    if (QIMEN_STARS.indexOf(zhiFuStar) === -1) {
+        throw new Error(`calculateNineStars：值符星「${zhiFuStar}」不在九星之列`);
+    }
     const targetIndex = diPan.indexOf(tianGan);
     const sourceIndex = QIMEN_STARS.indexOf(zhiFuStar);
     
@@ -408,6 +464,8 @@ export function getTianQinPosition(nineStars) {
  * @returns {Array<string>} 八神飛布後的九宮分布
  */
 export function calculateEightGods(isYang, tianGan, diPan) {
+    requireDiPan(diPan, 'calculateEightGods');
+    requireOnPlate(tianGan, diPan, 'calculateEightGods', '時干');
     // 確定時干在地盤上的位置作為值符神起點
     let headIndex = diPan.indexOf(tianGan);
     headIndex = normalizeZhongPalace(headIndex);
