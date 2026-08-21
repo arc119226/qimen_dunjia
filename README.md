@@ -141,7 +141,7 @@ npm install
 
 | 指令 | 說明 |
 |------|------|
-| `npm test` | 執行單元測試（94 個測試，約 1.4 秒） |
+| `npm test` | 執行單元測試（99 個測試，約 1.7 秒） |
 | `npm run build` | 打包為 ES Module（排除 lunar-javascript） |
 | `npm run build:standalone` | 打包為獨立 IIFE（包含所有依賴） |
 
@@ -1021,11 +1021,11 @@ qimen/
 │                   # - assessVigor：旺相休囚（九星四家並列、八門八節輪轉）
 │                   # - 每則判斷帶出處（書／篇／原文），異說並列不代為擇一
 ├── build.mjs       # 建置腳本（含第三方授權聲明）
-├── test.js         # 測試模組（94 個測試，約 1.4 秒）
+├── test.js         # 測試模組（99 個測試，約 1.7 秒）
 ├── package.json    # 專案配置（ES Module）
 ├── dist/           # 打包輸出目錄（npm run build 生成）
-│   ├── qimen.min.js           # ES Module 格式（~65KB，需外部 lunar-javascript）
-│   ├── qimen.standalone.min.js # IIFE 格式（~391KB，已包含 lunar-javascript）
+│   ├── qimen.min.js           # ES Module 格式（~70KB，需外部 lunar-javascript）
+│   ├── qimen.standalone.min.js # IIFE 格式（~396KB，已包含 lunar-javascript）
 │   ├── THIRD-PARTY-LICENSES.txt # 內嵌之第三方軟體授權
 │   └── API.md                 # 打包產物使用說明
 ├── CHANGELOG.md    # 版本歷史
@@ -1051,8 +1051,8 @@ qimen/
 
 ```
 qimen-dunjia-v{版本號}.zip
-├── qimen.min.js           # ES Module（~65KB，需外部 lunar-javascript）
-├── qimen.standalone.min.js # IIFE（~391KB，瀏覽器直接使用）
+├── qimen.min.js           # ES Module（~70KB，需外部 lunar-javascript）
+├── qimen.standalone.min.js # IIFE（~396KB，瀏覽器直接使用）
 ├── THIRD-PARTY-LICENSES.txt # 內嵌之第三方軟體授權（MIT 條款要求隨副本散布）
 ├── API.md                 # API 使用說明
 └── index.html             # 網頁示例

@@ -17,7 +17,7 @@ npm test
 node test.js
 ```
 
-Runs the test suite (94 tests, ~1.4s) covering:
+Runs the test suite (99 tests, ~1.7s) covering:
 - Five-layer golden values for Yang/Yin bureaus, different game numbers, and Jia hiding
 - `generateChartByDatetime` API (datetime parsing, solar terms, Yuan periods)
 - Full-year sweep: all 366 days of 2024 must chart successfully and cover all 24 solar terms
@@ -30,8 +30,8 @@ which is why a bug that made ~32 days a year uncharted shipped with "21 tests pa
 
 ### Building Distribution Files
 ```bash
-npm run build            # ES Module → dist/qimen.min.js (~65KB)
-npm run build:standalone # IIFE → dist/qimen.standalone.min.js (~391KB)
+npm run build            # ES Module → dist/qimen.min.js (~70KB)
+npm run build:standalone # IIFE → dist/qimen.standalone.min.js (~396KB)
 
 Both npm scripts run `build.mjs`. It uses esbuild's JS API rather than the CLI for one
 reason: the standalone bundle embeds lunar-javascript, and MIT requires its notice to
@@ -424,8 +424,8 @@ This project uses **bundled dist + GitHub auto source** release model.
 ### Zip Contents
 ```
 qimen-dunjia-v{version}.zip
-├── qimen.min.js           # ES Module (~65KB, requires lunar-javascript)
-├── qimen.standalone.min.js # IIFE (~391KB, includes lunar-javascript)
+├── qimen.min.js           # ES Module (~70KB, requires lunar-javascript)
+├── qimen.standalone.min.js # IIFE (~396KB, includes lunar-javascript)
 ├── THIRD-PARTY-LICENSES.txt # notice for the embedded lunar-javascript
 ├── API.md                 # API documentation
 └── index.html             # Web demo

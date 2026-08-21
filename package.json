@@ -1,6 +1,6 @@
 {
   "name": "qimen-dunjia",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "奇門遁甲排盤與格局判斷 - Qimen Dunjia chart generator and pattern analysis (Chai Bu and Fu Tou methods)",
   "main": "index.js",
   "type": "module",
