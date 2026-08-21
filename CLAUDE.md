@@ -271,6 +271,17 @@ Note this is deliberately instant-based, not calendar-day-based: the Yuan bounda
 
 **patterns.js**: Pattern judgment (格局). Reads a finished chart, returns findings.
 
+**The middle palace emits no 十干克應.** In 轉盤 the 天盤 is a rigid ring over the **eight**
+palaces; the centre is not on the ring, so `天盤[4]` is a fill-in for an off-ring cell, not an
+assertion. Reading it as one made **every single chart** (1080/1080 across 18 bureaus × 60 hours)
+emit a fabricated self-on-self finding. 《欽定古今圖書集成》〈釋時悖格〉 states the 轉盤 reading
+outright: 「六丙在五宮，寄坤二宮，以直符天芮加時干，即**六丙下臨六丁於四宮**」 — the centre's
+儀 leaves with 天禽/天芮 and the centre has no 天盤干 of its own. That destination is now the
+`中宮寄干` field. 《法竅》 attacks 轉盤 for exactly this (「中寄於坤一宮而有二曜」, 「誤以中五
+獨寄坤二死門也」); both readings are recorded, and the project follows 轉盤 because it *is* 轉盤.
+**The core is not changed** — the eight-palace rotation is right and has worked examples in four
+books behind it; only the judgment layer misread the fill-in.
+
 **Citations are verifiable, not decorative.** `scripts/verify-citations.mjs` takes every
 `SOURCES` entry and looks it up in the corpus. Before this, the only check was that 書/篇/文
 were non-empty — replacing a quote with 「（原文從缺）」 passed. The corpus is not in the repo

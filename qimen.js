@@ -286,6 +286,15 @@ export function generateQimenChart(pillars, legacyData) {
     resultMap.set('九星', nineStars);
     resultMap.set('天禽寄宮', tianQinDirection);
     resultMap.set('天禽落宮', getTianQinPosition(nineStars));
+
+    // 中宮之儀隨天禽出宮——《欽定古今圖書集成》〈釋時悖格〉：「六丙在五宮，
+    // 寄坤二宮，以直符天芮加時干，即六丙下臨六丁於四宮，此名時悖也。」
+    // 轉盤的天盤是八宮剛性環轉，中宮不在環上，故中宮沒有自己的天盤干；
+    // 其地盤之儀的去向由此欄位表達，判斷層據以不對中宮發格。
+    resultMap.set('中宮寄干', Object.freeze({
+        干: diPan[4],
+        落宮: getTianQinPosition(nineStars)
+    }));
     resultMap.set('八神', eightGods);
     
     return resultMap;

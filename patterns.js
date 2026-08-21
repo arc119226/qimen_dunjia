@@ -618,6 +618,12 @@ export function detectSanQiRuMu(chart) {
  */
 const SAN_DUN = Object.freeze([
     { 名: '天遁', 門: '生門', 奇: '丙', 地盤: '丁', 神: null, 說: '得月精所蔽' },
+    // 《法竅》〈吉格注釋〉作「丙奇**生開**合地丁為天遁」，較他書多一開門，
+    // 且此差異與飛盤／轉盤無關，故依專案慣例並列而不代為擇一
+    {
+        名: '天遁', 門: '開門', 奇: '丙', 地盤: '丁', 神: null, 說: '得月精所蔽',
+        讀法: '生開二門（法竅）'
+    },
     { 名: '地遁', 門: '開門', 奇: '乙', 地盤: '己', 神: null, 說: '得日精所蔽' },
     { 名: '人遁', 門: '休門', 奇: '丁', 地盤: null, 神: '太陰', 說: '得星精所蔽' }
 ]);
@@ -639,7 +645,7 @@ export function detectSanDun(chart) {
                 ? `${rule.門}與${rule.奇}奇同臨${palaceName(index)}宮，下加地盤${rule.地盤}`
                 : `${rule.門}、${rule.奇}奇與${rule.神}同臨${palaceName(index)}宮`;
             results.push(finding(rule.名, '吉', palaceName(index),
-                `${condition}，${rule.說}`, SOURCES.法竅_三遁));
+                `${condition}，${rule.說}`, SOURCES.法竅_三遁, rule.讀法));
         }
     }
     return results;
@@ -896,6 +902,16 @@ export function detectShiGanKeYing(chart) {
     requireChartFields(chart, ['天盤', '地盤'], 'detectShiGanKeYing');
     const results = [];
     for (let index = 0; index < 9; index++) {
+        // 中宮不發格。轉盤的天盤是**八宮**剛性環轉，中宮不在環上——
+        // 天盤陣列的中宮那一格是環外補值（等於地盤中宮），並非「天盤中宮確是此干」
+        // 的斷言。把它讀成一格，會使每一張盤都憑空多出一則自加自的假格
+        // （實測十八局六十時共 1080 盤，1080 盤皆然，非某些盤才有）。
+        //
+        // 轉盤典籍對中宮的處理是「其儀隨天禽出宮」——《欽定古今圖書集成》
+        // 〈釋時悖格〉：「六丙在五宮，寄坤二宮，以直符天芮加時干，
+        // 即六丙下臨六丁於四宮，此名時悖也。」中宮之丙落到四宮去了，
+        // 中宮本身沒有天盤干。該儀的去向見輸出的「中宮寄干」欄位。
+        if (index === PALACE.ZHONG) continue;
         const top = chart['天盤'][index];
         const bottom = chart['地盤'][index];
         if (!top || !bottom) continue;

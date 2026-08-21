@@ -652,6 +652,42 @@ function runYanyiHourTest() {
     record('《演義》陽遁一局甲子／乙丑／丙寅三時的天盤三奇與八門', t.errors);
 }
 
+/**
+ * 《欽定古今圖書集成》〈釋時悖格〉——轉盤算例，中宮之儀隨天禽出宮
+ *
+ * 原文：「假令冬至中元陽七局，丁壬之日，日昳為丁未時，**六丙在五宮，寄坤二宮**，
+ * 以直符天芮加時干，即**六丙下臨六丁於四宮**，此名『時悖』也。」
+ *
+ * 這是本專案所用的轉盤（以直符加時干），而它明說中宮的丙**落到四宮**去了——
+ * 轉盤裡中宮沒有自己的天盤干。這是「中宮不發十干克應」的直接依據：
+ * 天盤陣列的中宮那一格是八宮環外的補值，不是斷言。
+ *
+ * 《法竅》正是以此譏轉盤：「中寄於坤一宮而有二曜，是背天之道」（卷二），
+ * 又指「誤以中五獨寄坤二死門也」為謬（卷二〈游三避五〉）。兩說並存，
+ * 本專案為轉盤，故從轉盤之說。
+ */
+function runShiBeiGeTest() {
+    const t = createAsserter();
+    // 冬至中元陽七局、丁未時
+    const chart = classicChart('丁未', 7, '陽');
+
+    t.equal(chart['值符'], '天芮', '值符（原文「以直符天芮加時干」）');
+    t.equal(chart['值符落宮'], '巽', '值符落宮＝四宮＝巽');
+    t.equal(chart['天禽落宮'], '巽', '天禽隨天芮，亦在巽');
+    t.equal(chart['地盤'][4], '丙', '中宮之儀為六丙（原文「六丙在五宮」）');
+    t.deepEqual(chart['中宮寄干'], { 干: '丙', 落宮: '巽' },
+                '六丙下臨六丁於四宮——中宮之儀隨天禽出宮至巽');
+    t.equal(chart['地盤'][LUOSHU_BAGUA.indexOf('巽')], '丁',
+            '四宮之地盤為六丁（原文「下臨六丁」）');
+
+    // 中宮不發十干克應——這正是本算例所支持的
+    t.equal(detectShiGanKeYing(chart).filter(f => f.宮 === '中').length, 0,
+            '轉盤的中宮無天盤干，故不發十干克應');
+    t.equal(detectShiGanKeYing(chart).length, 8, '八宮各一格');
+
+    record('《圖書集成》〈釋時悖格〉：中宮之儀隨天禽出宮', t.errors);
+}
+
 /** 《元靈經》卷一兩則起例 */
 function runYuanlingTest() {
     const t = createAsserter();
@@ -1507,6 +1543,39 @@ function runTongzongFortyTest() {
     record(`《統宗》〈奇門四十格〉中 ${TONGZONG_FORTY.length} 則十干克應與本表相符`, t.errors);
 }
 
+/**
+ * 天遁的門：《法竅》作「生開」二門，他書僅生門
+ *
+ * 《奇門法竅》〈吉格注釋〉：「丙奇**生開**合地丁為天遁，其方得月精所避……
+ * 經曰：『天遁生開合丙奇，六丁相會是佳期，月精所蔽逢祥曜，萬事為福皆可宜。』」
+ * 賦文與注文皆作生開二門。此差異與飛盤／轉盤無關，故依專案慣例並列。
+ */
+function runTianDunDoorTest() {
+    const t = createAsserter();
+    const 六十時 = Object.values(SIX_XUNS).flat();
+    let 生 = 0;
+    let 開 = 0;
+    for (const yinYang of ['陽', '陰']) {
+        for (let ju = 1; ju <= 9; ju++) {
+            for (const shi of 六十時) {
+                for (const f of detectSanDun(buildChart(shi, ju, yinYang))) {
+                    if (f.格 !== '天遁') continue;
+                    if (f.讀法) {
+                        開++;
+                        t.ok(f.讀法.includes('生開'), '法竅讀法應標明生開二門');
+                        // 「有觸發」不夠——必須觸發在開門上，否則改成任何一門都會綠
+                        t.ok(f.細節.includes('開門'), `法竅之天遁應臨開門，實得：${f.細節}`);
+                    }
+                    else 生++;
+                }
+            }
+        }
+    }
+    t.ok(生 > 0, `他書之天遁（僅生門）應有觸發，實得 ${生}`);
+    t.ok(開 > 0, `《法竅》之天遁（開門）應有觸發，實得 ${開}——若為零，該讀法等於沒實作`);
+    record(`天遁兩讀（僅生門 ${生} 次、法竅生開二門另加 ${開} 次）`, truncate(t.errors, 6));
+}
+
 /** 實際盤面：每盤九宮各得一格，中宮因天地盤同干必為同干相加 */
 function runKeYingOnChartsTest() {
     const t = createAsserter();
@@ -1520,19 +1589,20 @@ function runKeYingOnChartsTest() {
                 const items = detectShiGanKeYing(chart);
                 charts++;
                 findings += items.length;
-                t.equal(items.length, 9, `${yinYang}${ju}局${shi}時 應九宮各一格`);
-                // 中宮天地盤恆同干（rotateMapping 保留中宮），故必為同干相加
-                const center = items.find(f => f.宮 === '中');
-                t.ok(!!center, '中宮應有判定');
-                if (center) {
-                    t.equal(chart['天盤'][4], chart['地盤'][4], '中宮天地盤應同干');
-                }
+                // 八宮各一格。中宮不發——轉盤的天盤是八宮剛性環轉，
+                // 中宮不在環上，天盤陣列的中宮那一格是環外補值而非斷言。
+                t.equal(items.length, 8, `${yinYang}${ju}局${shi}時 應八宮各一格`);
+                t.equal(items.filter(f => f.宮 === '中').length, 0,
+                        `${yinYang}${ju}局${shi}時 中宮不應發格`);
+                // 環外補值恆等於地盤中宮——正是它被誤讀成一格的原因
+                t.equal(chart['天盤'][4], chart['地盤'][4],
+                        '天盤中宮為環外補值，恆等於地盤中宮');
                 for (const f of items) if (f.異名) withAlt++;
             }
         }
     }
     t.equal(charts, 1080, '盤面總數');
-    t.equal(findings, 9720, '判定總數應為 1080 × 9');
+    t.equal(findings, 8640, '判定總數應為 1080 × 8（中宮不發）');
     t.ok(withAlt > 0, '應有帶異名者');
 
     record(`十干克應於 ${charts} 張盤共 ${findings} 則，其中 ${withAlt} 則帶法竅異名`, t.errors.slice(0, 5));
@@ -3229,7 +3299,7 @@ const CHART_FIELDS_MANUAL = [
     '值符落宮', '值符入中', '值使落宮', '值使入中', '飛步',
     '河圖', '方位', '九宮',
     '地盤', '地門', '天盤', '天門', '原星', '九星',
-    '天禽寄宮', '天禽落宮', '八神'
+    '天禽寄宮', '天禽落宮', '中宮寄干', '八神'
 ];
 
 /** 自動起盤在手動之外另加的欄位 */
@@ -3751,6 +3821,8 @@ function runAllTests() {
     runDiPanRuleTest();
     runEightGodsVerseTest();
     runYanyiHourTest();
+    runTianDunDoorTest();
+    runShiBeiGeTest();
     runYuanlingTest();
     runYingjingGridTest();
     runYingjingStarDoorTest();
