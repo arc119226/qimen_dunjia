@@ -3580,6 +3580,84 @@ function runNightZiTest() {
            truncate(t.errors, 10));
 }
 
+/**
+ * 1990-06-15 23 時：日柱的絕對值，以及與 lunar-javascript 的分道
+ *
+ * 上一則測的是**關係**——兩派差一日、時干各合五鼠遁。關係成立，兩派仍可能
+ * 整組平移一日而測不出來：若換日之界錯置一日，差一日仍是差一日。
+ * 這一則補上**絕對值**：給定一個時刻，日柱究竟是哪一個。
+ *
+ * 取 1990-06-15 23 時，是因為它已是這個分歧在實作生態中的標準探針
+ * （Jade Almanac《Why bazi calculators disagree》CC0 資料集 v1.2.1 之 B1，
+ * 並附 22 時之 B2 為對照）。同一瞬間，lunar-javascript 1.7.7 等多數實作給
+ * 辛亥，tyme4ts 1.5.2 給壬子——恰為本專案當日派與次日派之所分。
+ *
+ * 值得一釘的是最後一項：本專案的依賴正是 lunar-javascript，而預設（次日派）
+ * 與它相反。亦即本專案確實**覆寫**了 `getDayInGanZhiExact()` 的換日之界，
+ * 而非承襲之。此事原本只寫在文件裡，無測試看守——日後若有人「順手」改回
+ * 依賴的預設行為，8.3% 的時辰會靜默換盤。
+ *
+ * 期望值**不取自程式輸出**：日干支自古連續不斷，不隨曆法改革而斷，
+ * 故由日數推算，並先以另一廣見之日驗算式本身。
+ */
+
+/** 日干支錨點：此日為甲子 */
+const DAY_PILLAR_ANCHOR_UTC = Date.UTC(1949, 9, 1);
+
+/** 由曆日推日干支——不經被測程式 */
+function dayPillarByCount(year, month, day) {
+    const days = Math.round((Date.UTC(year, month - 1, day) - DAY_PILLAR_ANCHOR_UTC) / 86400000);
+    const index = ((days % 60) + 60) % 60;
+    return SIXTY_JIAZI_GANS[index % 10] + SIXTY_JIAZI_ZHIS[index % 12];
+}
+
+function runNightZiAbsoluteDayPillarTest() {
+    const t = createAsserter();
+
+    // 〇、先驗推算式本身。錨點與另一廣見之日俱須對上，否則以下全不可信
+    t.equal(dayPillarByCount(1949, 10, 1), '甲子', '錨點日應得甲子');
+    t.equal(dayPillarByCount(2000, 1, 1), '戊午', '推算式應得 2000-01-01 為戊午日');
+
+    const 當日之日柱 = dayPillarByCount(1990, 6, 15);
+    const 次日之日柱 = dayPillarByCount(1990, 6, 16);
+    t.equal(當日之日柱, '辛亥', '1990-06-15 應為辛亥日');
+    t.equal(次日之日柱, '壬子', '1990-06-16 應為壬子日');
+
+    // 一、B1：23 時落於夜子，兩派各歸其日
+    const b1Next = chartToObject(generateChartByDatetime('1990061523', { 夜子時: '次日' }));
+    const b1Same = chartToObject(generateChartByDatetime('1990061523', { 夜子時: '當日' }));
+
+    t.equal(b1Next['落於夜子時'], true, 'B1 應標為夜子時');
+    t.equal(b1Next['日柱'], 次日之日柱, 'B1 次日派的日柱應為次一曆日之干支（壬子）');
+    t.equal(b1Same['日柱'], 當日之日柱, 'B1 當日派的日柱應為當日曆日之干支（辛亥）');
+
+    // 日干一翻，八字所謂日主即隨之而異——此分歧之所以要緊，正在於此
+    t.ok(b1Next['日柱'][0] !== b1Same['日柱'][0],
+         'B1 兩派的日干應不同，否則此探針分不出兩派');
+
+    // 時柱依各自之日干起五鼠遁
+    t.equal(b1Next['時柱'], '庚子', 'B1 次日派：壬日子時為庚子（丁壬庚子居）');
+    t.equal(b1Same['時柱'], '戊子', 'B1 當日派：辛日子時為戊子（丙辛從戊起）');
+
+    // 二、B2 對照：早一小時而已，兩派俱不得移動。對照組一動，就是探針壞了
+    const b2Next = chartToObject(generateChartByDatetime('1990061522', { 夜子時: '次日' }));
+    const b2Same = chartToObject(generateChartByDatetime('1990061522', { 夜子時: '當日' }));
+
+    t.equal(b2Next['落於夜子時'], false, 'B2 不應標為夜子時');
+    for (const [school, obj] of [['次日', b2Next], ['當日', b2Same]]) {
+        t.equal(obj['日柱'], 當日之日柱, `B2（${school}）日柱不應移動`);
+        t.equal(obj['時柱'], '己亥', `B2（${school}）時柱應為己亥（辛日亥時）`);
+    }
+
+    // 三、預設即次日派，故本專案於此刻與其依賴 lunar-javascript 相左
+    const b1Default = chartToObject(generateChartByDatetime('1990061523'));
+    t.equal(b1Default['日柱'], 次日之日柱,
+            '預設應覆寫 lunar-javascript 的子正換日，而非承襲之');
+
+    record('夜子時絕對日柱（1990-06-15 23 時 B1／22 時 B2，日柱由日數推算而非取自程式）',
+           truncate(t.errors, 8));
+}
+
 // ============================================================================
 // 基準自陳
 // ============================================================================
@@ -3881,6 +3959,7 @@ function runAllTests() {
     runChartFieldsTest();
     runNightZiClassicalArithmeticTest();
     runNightZiTest();
+    runNightZiAbsoluteDayPillarTest();
 
     section('第三部分之八：基準自陳');
     runBasisDeclarationTest();

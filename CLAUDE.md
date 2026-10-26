@@ -17,7 +17,7 @@ npm test
 node test.js
 ```
 
-Runs the test suite (99 tests, ~1.7s) covering:
+Runs the test suite (104 tests, ~1.7s) covering:
 - Five-layer golden values for Yang/Yin bureaus, different game numbers, and Jia hiding
 - `generateChartByDatetime` API (datetime parsing, solar terms, Yuan periods)
 - Full-year sweep: all 366 days of 2024 must chart successfully and cover all 24 solar terms
@@ -389,7 +389,7 @@ the entry never says 星.
 八門旺相 needs 節氣, which only `generateChartByDatetime` supplies; a manually built chart
 returns `八門: null` rather than guessing.
 
-**test.js**: Assertion-driven test suite (42 tests). Every case compares against expected
+**test.js**: Assertion-driven test suite (104 tests). Every case compares against expected
 values; the golden values in `chartTestCases` were hand-verified against traditional rules
 and must not be regenerated from program output without re-checking them by hand.
 
