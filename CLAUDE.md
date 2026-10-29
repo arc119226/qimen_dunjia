@@ -17,7 +17,7 @@ npm test
 node test.js
 ```
 
-Runs the test suite (104 tests, ~1.7s) covering:
+Runs the test suite (105 tests, ~1.7s) covering:
 - Five-layer golden values for Yang/Yin bureaus, different game numbers, and Jia hiding
 - `generateChartByDatetime` API (datetime parsing, solar terms, Yuan periods)
 - Full-year sweep: all 366 days of 2024 must chart successfully and cover all 24 solar terms
@@ -139,7 +139,7 @@ kept for compatibility. The arrow field had **zero test coverage** — flipping
 along with arrow-and-name agreeing on the same palace.
 
 **Output fields are pinned exactly.** `runChartFieldsTest` asserts set equality against three
-explicit lists (manual 36 / 拆補 44 / 符頭 48). Adding a field means editing that list —
+explicit lists (manual 37 / 拆補 45 / 符頭 49). Adding a field means editing that list —
 deliberately. The previous 16-field non-null check let additions and removals pass unnoticed.
 
 **夜子時 (the 23:00–24:00 hour) is an option, not a silent choice.**
@@ -239,7 +239,7 @@ Note this is deliberately instant-based, not calendar-day-based: the Yuan bounda
 - Calculates Xun Shou and Fu Shou from time pillar
 - Resolves Jia hiding logic
 - Calls all five layer calculations in sequence
-- Returns a Map with 35 keys including pillars, game info, and all five layers
+- Returns a Map with 37 keys including pillars, game info, and all five layers
 - Provides convenience APIs: `generateChartByDatetime()` and `generateChartNow()`
 
 **constants.js**: Contains all lookup tables including:
@@ -389,7 +389,7 @@ the entry never says 星.
 八門旺相 needs 節氣, which only `generateChartByDatetime` supplies; a manually built chart
 returns `八門: null` rather than guessing.
 
-**test.js**: Assertion-driven test suite (104 tests). Every case compares against expected
+**test.js**: Assertion-driven test suite (105 tests). Every case compares against expected
 values; the golden values in `chartTestCases` were hand-verified against traditional rules
 and must not be regenerated from program output without re-checking them by hand.
 
@@ -408,8 +408,8 @@ The legacy positional form `generateQimenChart(id, [...])` still works — `norm
 7. Calculate Eight Doors: '癸' at 坎 → Zhi Shi door is 休門, then fly 6 palaces (Yang = clockwise through the nine palaces)
 8. Calculate Nine Stars: '癸' at 坎 → Zhi Fu star is 天蓬; 落宮 is read back from the resulting 九星 array
 9. Calculate Eight Gods: Start from time stem '庚' position, use Yang deity sequence
-10. Return Map with 35 fields — 41 via `generateChartByDatetime` (adds 節氣/三元/定局法/
-    節後天數/時間基準/曆法基準), 45 with `{定局法:'符頭'}` (adds 上元符頭/符頭/超接/超接天數/閏局)
+10. Return Map with 37 fields — 45 via `generateChartByDatetime` (adds 節氣/三元/定局法/
+    節後天數/時間基準/曆法基準), 49 with `{定局法:'符頭'}` (adds 上元符頭/符頭/超接/超接天數/閏局)
 
 ## Important Implementation Notes
 
