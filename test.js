@@ -3450,11 +3450,88 @@ function runChartFieldsTest() {
     t.deepEqual(extra, ['時鐘來源'], 'generateChartNow 應只多出時鐘來源一欄');
 
     record(`輸出欄位精確清單（手動 ${CHART_FIELDS_MANUAL.length}、拆補 ` +
-           `${CHART_FIELDS_MANUAL.length + CHART_FIELDS_AUTO_EXTRA.length + 1}、符頭 ` +
-           `${CHART_FIELDS_MANUAL.length + CHART_FIELDS_AUTO_EXTRA.length + 5} 欄）`,
+           `${CHART_FIELDS_MANUAL.length + CHART_FIELDS_AUTO_EXTRA.length + CHART_FIELDS_CHAIBU_EXTRA.length}、符頭 ` +
+           `${CHART_FIELDS_MANUAL.length + CHART_FIELDS_AUTO_EXTRA.length + CHART_FIELDS_FUTOU_EXTRA.length} 欄）`,
            truncate(t.errors, 10));
 }
 
+
+/**
+ * dist/API.md 的輸出範例必須就是程式的輸出
+ *
+ * 這份文件隨 release zip 出貨，是使用者唯一會讀到的欄位清單——而它**漂過一次**：
+ * CHANGELOG 記著「`dist/API.md` 欄位名與實際輸出不符：文件寫 `八門`／`年空亡`，
+ * 函式庫實際回傳 `天門`／`年孤虛`」，當時靠人工比對發現並手改。改完仍無任何東西
+ * 看守，於是它再度落後——本則寫成時，範例列三十三欄而實際回傳四十五欄，十二個
+ * 欄位從未記載，其中 `天禽落宮` 與 `中宮寄干` 還是最近兩版的主要新增。
+ *
+ * runChartFieldsTest 把欄位集合釘在 test.js 的陣列上，擋得住程式端的增刪，卻擋
+ * 不住文件端的落後——兩者從不相見。本則讓它們相見。
+ *
+ * **這不是獨立的黃金值。** 範例的值由程式產生，其正確性由 chartTestCases 等則
+ * 負責；本則釘的是「文件與程式一致」，不是「程式算得對」。故範例日後若需更新，
+ * 以程式輸出重新產生即可，不必手算——與 chartTestCases 的規矩相反，因為兩者要
+ * 答的本來就是兩個不同的問題。
+ */
+function runApiDocSyncTest() {
+    const t = createAsserter();
+    const md = readFileSync(new URL('./dist/API.md', import.meta.url), 'utf8');
+
+    const anchor = md.indexOf('## 輸出範例');
+    t.ok(anchor !== -1, 'API.md 應有「輸出範例」一節');
+
+    // 範例所用的時刻由文件自己宣告，不在此另寫一份——否則改了文件而測試仍比
+    // 舊時刻，就又是一組各說各話
+    const callMark = "generateChartByDatetime('";
+    const callAt = md.indexOf(callMark, anchor);
+    t.ok(callAt !== -1, '輸出範例應寫明其所用的 generateChartByDatetime 呼叫');
+    const dtStart = callAt + callMark.length;
+    const datetime = md.slice(dtStart, md.indexOf("'", dtStart));
+    t.equal(datetime.length, 10, '輸出範例的時刻應為十位數字串');
+
+    // 一、範例必須逐欄逐值等於程式的輸出
+    const fence = '```json';
+    const open = md.indexOf(fence, anchor);
+    const bodyStart = open + fence.length;
+    const close = md.indexOf('```', bodyStart);
+    t.ok(open !== -1 && close !== -1, '輸出範例應含一個 json 區塊');
+
+    let documented = null;
+    try {
+        documented = JSON.parse(md.slice(bodyStart, close));
+    } catch (error) {
+        t.ok(false, `輸出範例的 json 區塊應可解析：${error.message}`);
+    }
+
+    if (documented) {
+        const real = chartToObject(generateChartByDatetime(datetime));
+        // 先比欄位集合：deepEqual 整包比只會說「不等」，比集合才指得出是哪一欄
+        t.deepEqual(Object.keys(documented).sort(), Object.keys(real).sort(),
+                    'API.md 輸出範例的欄位集合應等於實際輸出');
+        for (const field of Object.keys(real)) {
+            if (!(field in documented)) continue;
+            t.deepEqual(documented[field], real[field],
+                        `API.md 輸出範例的「${field}」應等於實際輸出`);
+        }
+    }
+
+    // 二、不在範例裡的欄位，至少要在文件中被提到
+    //     範例只能呈現一種起法；符頭法專屬欄位與 generateChartNow 的時鐘來源
+    //     不會出現在其中，但它們同樣是對使用者的承諾
+    const elsewhere = new Set([
+        ...Object.keys(chartToObject(generateChartByDatetime(datetime, { 定局法: '符頭' }))),
+        ...Object.keys(chartToObject(generateChartNow()))
+    ]);
+    for (const field of elsewhere) {
+        t.ok(md.includes(field), `API.md 應提及欄位「${field}」`);
+    }
+
+    // 三、文件自報的版本須與 package.json 相同——版本號寫在標題，最容易忘記改
+    t.ok(md.includes(VERSION), `API.md 應標示當前版本 ${VERSION}`);
+
+    record('dist/API.md 與實際輸出同步（範例逐欄逐值、符頭法與 generateChartNow 欄位均見於文件）',
+           truncate(t.errors, 10));
+}
 function runNightZiClassicalArithmeticTest() {
     const t = createAsserter();
     const 時辰 = 120;
@@ -3957,6 +4034,7 @@ function runAllTests() {
 
     runNowTimezoneTest();
     runChartFieldsTest();
+    runApiDocSyncTest();
     runNightZiClassicalArithmeticTest();
     runNightZiTest();
     runNightZiAbsoluteDayPillarTest();
